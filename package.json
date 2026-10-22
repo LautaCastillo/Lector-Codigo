@@ -1,0 +1,16 @@
+{
+  "name": "inventario-patrimonio",
+  "private": true,
+  "version": "0.1.0",
+  "description": "App de inventario por código de barras para la Dirección de Patrimonio de la UNSa",
+  "workspaces": ["shared", "backend"],
+  "scripts": {
+    "build": "npm run build -w shared && npm run prisma:generate -w backend && npm run build -w backend",
+    "lint": "npm run lint -w shared && npm run lint -w backend",
+    "test": "npm run build -w shared && npm run test -w shared && npm run test -w backend",
+    "format": "prettier --write \"**/*.{ts,json,md,yml}\" --ignore-path .gitignore"
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2"
+  }
+}

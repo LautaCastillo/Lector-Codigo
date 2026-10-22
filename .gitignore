@@ -1,0 +1,8 @@
+node_modules
+dist
+coverage
+.env
+*.log
+.expo
+backend/src/generated
+.DS_Store

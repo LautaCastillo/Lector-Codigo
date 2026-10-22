@@ -1,0 +1,145 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Simbologia {
+  code39
+  code93
+  code128
+  ean13
+  ean8
+  upc_a
+  upc_e
+  itf14
+  codabar
+  qr
+  datamatrix
+  pdf417
+  aztec
+}
+
+enum EstadoCodigo {
+  legible
+  sin_codigo
+  codigo_danado
+  desconocido
+}
+
+enum Titularidad {
+  propio
+  terceros
+}
+
+enum Rol {
+  administrador
+  relevador
+}
+
+model Usuario {
+  id            String            @id @default(uuid())
+  /// Identificador provisorio (cabecera x-relevador) o cuenta institucional futura.
+  cuenta        String            @unique
+  nombre        String?
+  rol           Rol               @default(relevador)
+  activo        Boolean           @default(true)
+  creadoEn      DateTime          @default(now())
+  relevamientos Relevamiento[]
+  cambios       HistorialCambio[]
+  exportaciones Exportacion[]
+
+  @@map("usuario")
+}
+
+model Bien {
+  id                 String            @id @default(uuid())
+  numeroInventario   String            @unique
+  estadoCodigo       EstadoCodigo      @default(legible)
+  descripcion        String?
+  cantidad           Int?
+  estadoBien         String?
+  valorUnitario      Decimal?          @db.Decimal(14, 2)
+  fechaIncorporacion DateTime?         @db.Date
+  proveedor          String?
+  numeroFactura      String?
+  fechaFactura       DateTime?         @db.Date
+  responsableUso     String?
+  ubicacionFisica    String?
+  areaResponsable    String?
+  titularidad        Titularidad?
+  numeroSerie        String?
+  creadoEn           DateTime          @default(now())
+  modificadoEn       DateTime          @updatedAt
+  codigos            CodigoBien[]
+  relevamientos      Relevamiento[]
+  cambios            HistorialCambio[]
+
+  @@index([descripcion])
+  @@map("bien")
+}
+
+/// Un bien puede tener varios códigos, de distintas simbologías.
+model CodigoBien {
+  id         String     @id @default(uuid())
+  bienId     String
+  bien       Bien       @relation(fields: [bienId], references: [id], onDelete: Cascade)
+  simbologia Simbologia
+  /// Valor ya normalizado (ver shared/normalizarCodigo).
+  valor      String
+  creadoEn   DateTime   @default(now())
+
+  @@unique([simbologia, valor])
+  @@index([bienId])
+  @@map("codigo_bien")
+}
+
+model Relevamiento {
+  id                    String      @id @default(uuid())
+  /// UUID generado en el dispositivo; vuelve idempotente la subida.
+  idCliente             String      @unique
+  bienId                String?
+  bien                  Bien?       @relation(fields: [bienId], references: [id])
+  usuarioId             String
+  usuario               Usuario     @relation(fields: [usuarioId], references: [id])
+  simbologia            Simbologia?
+  valorLeido            String?
+  estadoDetectado       String?
+  observaciones         String?
+  relevadoEnDispositivo DateTime
+  sincronizadoEn        DateTime    @default(now())
+
+  @@index([bienId])
+  @@index([usuarioId])
+  @@map("relevamiento")
+}
+
+model HistorialCambio {
+  id            String   @id @default(uuid())
+  bienId        String
+  bien          Bien     @relation(fields: [bienId], references: [id], onDelete: Cascade)
+  usuarioId     String
+  usuario       Usuario  @relation(fields: [usuarioId], references: [id])
+  campo         String
+  valorAnterior String?
+  valorNuevo    String?
+  enDispositivo DateTime
+  enServidor    DateTime @default(now())
+
+  @@index([bienId])
+  @@map("historial_cambio")
+}
+
+model Exportacion {
+  id        String   @id @default(uuid())
+  usuarioId String
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
+  formato   String
+  filtros   Json?
+  creadoEn  DateTime @default(now())
+
+  @@map("exportacion")
+}
