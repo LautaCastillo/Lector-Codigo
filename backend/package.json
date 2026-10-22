@@ -13,7 +13,8 @@
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:validate": "prisma validate"
+    "prisma:validate": "prisma validate",
+    "importar": "nest build && node dist/catalogo/importar-cli.js"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",
@@ -22,6 +23,8 @@
     "@patrimonio/shared": "*",
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
+    "exceljs": "^4.4.0",
+    "jose": "^6.2.13",
     "pg": "^8.13.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"

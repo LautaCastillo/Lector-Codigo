@@ -72,6 +72,11 @@ model Bien {
   areaResponsable    String?
   titularidad        Titularidad?
   numeroSerie        String?
+  /// Campos que trae el listado de SIU Diaguita ("Bienes de uso").
+  catalogo           String?
+  motivoAlta         String?
+  numeroAnterior     String?
+  expediente         String?
   creadoEn           DateTime          @default(now())
   modificadoEn       DateTime          @updatedAt
   codigos            CodigoBien[]

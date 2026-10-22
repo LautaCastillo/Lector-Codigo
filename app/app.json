@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "Inventario Patrimonio",
+    "slug": "inventario-patrimonio",
+    "scheme": "patrimonio",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "La cámara se usa para leer los códigos de barras de los bienes."
+        }
+      ],
+      "expo-status-bar"
+    ],
+    "android": {
+      "package": "ar.edu.unsa.patrimonio.inventario",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    }
+  }
+}

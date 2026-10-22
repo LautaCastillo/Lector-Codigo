@@ -18,6 +18,12 @@ describe('candidatosInventario', () => {
   it('genera variante sin ceros a la izquierda', () => {
     expect(candidatosInventario('00333013')).toEqual(['00333013', '333013']);
   });
+  it('completa a 8 dígitos un valor sin ceros', () => {
+    expect(candidatosInventario('333013')).toEqual(['333013', '00333013']);
+  });
+  it('encuentra el inventario desde un EAN13 con relleno distinto', () => {
+    expect(candidatosInventario('0000000333013')).toContain('00333013');
+  });
   it('deja intacto un valor no numérico', () => {
     expect(candidatosInventario('AB-12')).toEqual(['AB-12']);
   });

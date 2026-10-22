@@ -36,7 +36,15 @@ Fecha de redacción: 22/10/2026.
 - `docker-compose.yml`: el puerto del host es configurable con `DB_PORT` (por defecto 5432).
 - `backend/src/main.ts`: carga `backend/.env` al arrancar con `process.loadEnvFile()`. Antes la aplicación no leía `DATABASE_URL` y devolvía error 500 al consultar la base.
 
-## 3. Puesta en marcha en la otra computadora
+## 2b. Base de datos en Supabase (22/10/2026)
+
+- La base de desarrollo pasó de Docker a Supabase (proyecto `Lector-CodigoBarra`, us-west-2), porque la PC de Patrimonio tiene la virtualización desactivada en el BIOS.
+- `DATABASE_URL` en `backend/.env` usa la cadena Session pooler. Migraciones: `cd backend && npx prisma migrate deploy`.
+- Migración `habilita_rls`: activa RLS sin políticas en todas las tablas (bloquea la API pública de Supabase; el backend usa `postgres` y no se ve afectado).
+- Verificado con un bien de prueba (ya borrado): escaneo por código, por inventario y código inexistente.
+- Hallazgo: un escaneo EAN13 `0000000333013` no encuentra el inventario `00333013`, porque `candidatosInventario` solo prueba el valor completo y sin ceros. Depende de la decisión pendiente sobre relleno de ceros.
+
+## 3. Puesta en marcha en la otra computadora (con Docker; en Supabase basta el paso 2 con la cadena de conexión)
 
 ### Requisitos
 
@@ -118,3 +126,35 @@ Si se usa otra versión de Node en otros proyectos, instalar `nvm-windows` y alt
 - Commits en español, en imperativo y breves (por ejemplo: `Agrega pantalla de escaneo`).
 - Nunca subir credenciales; usar variables de entorno y `.env.example` sin valores reales.
 - Detalle completo de decisiones: `CLAUDE.md`, `README.md` y `docs/arquitectura.md`.
+
+## 7. App móvil (Expo SDK 57, `app/`)
+
+- Fijada en SDK 57 porque es el que soporta el Expo Go instalado en el celular. Creada la app con Expo Router (`app/src/app/`) y la pantalla de escaneo (`index.tsx`): lee códigos con `expo-camera`, usa las simbologías de `GET /configuracion/simbologias` (con respaldo local) y consulta `POST /bienes/escaneo`.
+- Verificado: chequeo de tipos y empaquetado Android (`npx expo export`). No probada en un dispositivo.
+- Para probar: copiar `app/.env.example` a `app/.env` con la IP de la PC, iniciar el backend (escuchando en la red) y correr `npm run start -w app`; abrir con Expo Go.
+
+## 8. Sesión y cuentas (22/10/2026)
+
+- Autenticación con Supabase Auth (correo y contraseña). La app inicia sesión con `@supabase/supabase-js`; el backend valida el token con las claves públicas del proyecto (`SUPABASE_URL` en `backend/.env`). Sin `SUPABASE_URL` rige la cabecera provisoria `x-relevador` (desarrollo y pruebas).
+- Las cuentas nuevas nacen inactivas (`usuario.activo = false`) y un administrador debe habilitarlas. `GET /me` informa el estado a la app.
+- Para aprobar una cuenta: poner `activo = true` (y `rol` si corresponde) en la tabla `usuario`. Todavía no hay pantalla de administración.
+- Cuenta de prueba: usuario `adminlauta` (administrador). Es provisoria: cambiar la contraseña o eliminarla antes de cargar datos reales.
+- Provisorio: la app acepta un nombre de usuario sin arroba y le agrega `@patrimonio.local`. Pendiente: login real con correo o nombre de usuario resuelto en el backend, y recuperación de contraseña por correo.
+- La sesión se guarda en AsyncStorage (sin cifrar). Evaluar `expo-secure-store` antes de producción.
+- Pantallas: login, registro, cuenta pendiente, inicio (con funciones próximas deshabilitadas), escanear y mi cuenta.
+
+## 9. Interfaz (22/10/2026)
+
+- Modo claro, oscuro o automático (Ajustes), con la preferencia guardada en el dispositivo.
+- Menú lateral con inicio, escanear, mi perfil, ajustes y cerrar sesión: deslizable en el celular y fijo a la izquierda desde 900 px de ancho. Las tarjetas del inicio y las pantallas se adaptan al ancho disponible.
+- Los campos de contraseña tienen botón para mostrarla u ocultarla.
+- Mi perfil: edita el nombre (`PATCH /me`) y cambia la contraseña (Supabase Auth). Cuenta y rol solo los cambia un administrador.
+- Probado: tipos, pruebas del backend y empaquetado Android. Sin probar en dispositivo.
+
+## 10. Catálogo de bienes (22/10/2026)
+
+- Importador del listado "Bienes de uso" de SIU Diaguita (Exportar Excel; viene con extensión `.xls` pero es `.xlsx`): `cd backend && npm run importar -- ruta/al/listado.xls`. Es idempotente: crea los nuevos y actualiza los existentes por número de inventario.
+- El número patrimonial de SIU viene como `NUI:00006349`; se guarda `00006349` (8 dígitos). El escaneo prueba el valor leído, sin ceros y completado a 8 dígitos, por lo que resuelve EAN13 con otro relleno.
+- Se cargaron 55 bienes de prueba. Campos nuevos en `bien`: catálogo, motivo de alta, número anterior y expediente.
+- El listado exportado no incluye "responsable de uso" (SIU lo ofrece como columna opcional).
+- Pendiente: descarga automática del catálogo al dispositivo (SQLite) para el uso sin conexión; importación desde la app por un administrador; normalizar áreas, ubicaciones y catálogo en tablas propias.
