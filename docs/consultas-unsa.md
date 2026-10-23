@@ -26,10 +26,11 @@ Conviene pedir a la Dirección de Patrimonio una nota o aval que respalde la sol
 | N.º | Pregunta | Enviada | Respuesta | Respondió |
 |---|---|---|---|---|
 | 11 | Modelo de alta de cuentas (por invitación) y quiénes serán administradores | No | | |
-| 12 | Simbologías y formato real de las etiquetas (las de SIU parecen Code 128 con el número de 8 dígitos; falta confirmarlo con una etiqueta real) | No | | |
+| 12 | Simbologías y formato real de las etiquetas (las de SIU parecen Code 128 con el número de 8 dígitos; en una prueba real una etiqueta se leyó como Code 39 y con 7 dígitos, `0304016`, para el bien `00304016`, y otra como `03316`: el escáner ya lo resuelve completando ceros, pero conviene confirmar el formato real con Patrimonio) | No | | |
 | 13 | Retención de la auditoría y normativa aplicable (junto con el área legal) | No | | |
 | 14 | ¿Se exporta en el formato del Colector de Datos de Diaguita? | No | | |
-| 15 | Licencia del código y permiso para mostrar el proyecto en el portfolio, sin datos reales (junto con la cátedra o tutor) | No | | |
+| 15 | Hallazgos: diferencia entre "no identificado" y "nuevo", cuántas fotos por hallazgo, tamaño máximo y dónde deben guardarse (hoy: una foto de hasta 1 MB en la base) | No | | |
+| 16 | Licencia del código y permiso para mostrar el proyecto en el portfolio, sin datos reales (junto con la cátedra o tutor) | No | | |
 
 ## Pendientes de seguridad relacionados
 

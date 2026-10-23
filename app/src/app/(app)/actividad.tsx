@@ -14,6 +14,7 @@ const LIMITE_SERVIDOR = 200;
 const ICONOS: Record<Categoria, keyof typeof Ionicons.glyphMap> = {
   cuentas: 'person-outline',
   sesiones: 'log-in-outline',
+  relevamientos: 'albums-outline',
   consultas: 'eye-outline',
 };
 

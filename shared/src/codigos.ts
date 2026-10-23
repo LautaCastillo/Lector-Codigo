@@ -29,3 +29,8 @@ export function candidatosInventario(valorNormalizado: string): string[] {
   const completo = sinCeros.length <= LARGO_INVENTARIO ? sinCeros.padStart(LARGO_INVENTARIO, '0') : sinCeros;
   return [...new Set([valorNormalizado, sinCeros, completo])];
 }
+
+/** Identificador interno de un hallazgo (H-XXXXXXXX), derivado de su UUID: lo mismo en el teléfono y en el servidor. */
+export function codigoProvisorioDe(idCliente: string): string {
+  return `H-${idCliente.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+}

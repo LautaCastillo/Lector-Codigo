@@ -1,22 +1,24 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { BienDetalleDto, CambioBienDto } from '@patrimonio/shared';
+import type { BienDetalleDto, CambioBienDto, RelevamientoRegistradoDto } from '@patrimonio/shared';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
-import { Dato, Etiquetas, Seccion } from '../../../components/bien';
+import { ChipResultado, Dato, Etiquetas, Seccion } from '../../../components/bien';
 import { Boton } from '../../../components/ui';
-import { historialBien, obtenerBien, ErrorApi } from '../../../lib/api';
+import { historialBien, obtenerBien, relevamientosDeBien, ErrorApi } from '../../../lib/api';
 import { ETIQUETA_CAMPO, fechaCorta, fechaHora, moneda, valorLegible } from '../../../lib/formato';
 import { radio, useEstilos, useTema, type Paleta } from '../../../lib/tema';
 
 export default function FichaBien() {
   const { numero } = useLocalSearchParams<{ numero: string }>();
+  const router = useRouter();
   const e = useEstilos(fabrica);
   const { c } = useTema();
   const [bien, setBien] = useState<BienDetalleDto | null>(null);
   const [historial, setHistorial] = useState<CambioBienDto[] | null>(null);
+  const [ultimos, setUltimos] = useState<RelevamientoRegistradoDto[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actualizando, setActualizando] = useState(false);
   const [copiado, setCopiado] = useState(false);
@@ -28,6 +30,7 @@ export default function FichaBien() {
       setBien(ficha);
       // El historial es secundario: si falla, la ficha se muestra igual.
       historialBien(ficha.numeroInventario).then(setHistorial).catch(() => setHistorial(null));
+      relevamientosDeBien(ficha.numeroInventario).then(setUltimos).catch(() => setUltimos(null));
     } catch (err) {
       setBien(null);
       setError(err instanceof ErrorApi && err.estado === 404 ? 'Este bien no está en el catálogo.' : err instanceof Error ? err.message : 'No se pudo cargar la ficha.');
@@ -91,6 +94,7 @@ export default function FichaBien() {
           </View>
           <Text style={e.descripcion}>{bien.descripcion ?? 'Sin descripción'}</Text>
           <Etiquetas bien={bien} />
+          <Boton texto="Registrar relevamiento" onPress={() => router.push({ pathname: '/relevamiento/nuevo', params: { numero: bien.numeroInventario } })} />
         </View>
 
         <Seccion titulo="Ubicación y responsable">
@@ -122,8 +126,37 @@ export default function FichaBien() {
           )}
         </Seccion>
 
-        <Seccion titulo="Último relevamiento" inicialAbierta={false}>
-          <Text style={e.vacio}>Todavía no hay relevamientos registrados para este bien.</Text>
+        <Seccion
+          titulo="Último relevamiento"
+          resumen={ultimos?.[0] ? `${fechaHora(ultimos[0].relevadoEnDispositivo)} · ${ultimos[0].relevador ?? ''}` : 'Sin relevamientos'}
+        >
+          {ultimos === null ? (
+            <Text style={e.vacio}>No se pudieron cargar los relevamientos.</Text>
+          ) : ultimos.length === 0 ? (
+            <Text style={e.vacio}>Todavía no hay relevamientos registrados para este bien.</Text>
+          ) : (
+            ultimos.map((r) => (
+              <Pressable
+                key={r.id}
+                disabled={!r.propio}
+                accessibilityRole={r.propio ? 'button' : undefined}
+                onPress={() => router.push({ pathname: '/relevamiento/[id]', params: { id: r.id } })}
+                style={({ pressed }) => [e.relevamiento, pressed && { opacity: 0.8 }]}
+              >
+                <View style={{ flex: 1, gap: 3 }}>
+                  <Text style={e.cambioTitulo}>{fechaHora(r.relevadoEnDispositivo)}</Text>
+                  <Text style={e.cambioDetalle}>
+                    {r.relevador ?? 'Alguien'}
+                    {r.ubicacionObservada ? ` · ${r.ubicacionObservada}` : ''}
+                  </Text>
+                  {r.estadoDetectado && <Text style={e.cambioDetalle}>Estado declarado: {r.estadoDetectado}</Text>}
+                  {r.observaciones && <Text style={e.cambioDetalle}>“{r.observaciones}”</Text>}
+                  <ChipResultado resultado={r.resultado} />
+                </View>
+                {r.propio && <Text style={e.flecha}>›</Text>}
+              </Pressable>
+            ))
+          )}
         </Seccion>
 
         <Seccion titulo="Historial" resumen={historial ? `${historial.length} cambio${historial.length === 1 ? '' : 's'}` : undefined}>
@@ -183,6 +216,8 @@ const fabrica = (c: Paleta) => ({
   descripcion: { fontSize: 16, color: c.texto, lineHeight: 22 },
   pie: { fontSize: 13, color: c.suave },
   vacio: { fontSize: 15, color: c.suave },
+  relevamiento: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: 1, borderTopColor: c.borde },
+  flecha: { fontSize: 28, color: c.suave },
   cambio: { flexDirection: 'row', gap: 12 },
   linea: { alignItems: 'center', width: 14 },
   punto: { width: 12, height: 12, borderRadius: 6, backgroundColor: c.accion, marginTop: 4 },

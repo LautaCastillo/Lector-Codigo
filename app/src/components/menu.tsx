@@ -11,7 +11,7 @@ const ANCHO_MENU = 280;
 /** Desde este ancho (tablet o PC) el menú queda fijo a la izquierda en lugar de deslizarse. */
 const ANCHO_FIJO = 900;
 
-type Ruta = '/' | '/escanear' | '/lote' | '/buscar' | '/cuentas' | '/actividad' | '/perfil' | '/ajustes';
+type Ruta = '/' | '/escanear' | '/lote' | '/relevamientos' | '/exportar' | '/hallazgo/nuevo' | '/buscar' | '/cuentas' | '/actividad' | '/perfil' | '/ajustes';
 interface Item {
   titulo: string;
   icono: keyof typeof Ionicons.glyphMap;
@@ -22,6 +22,9 @@ const ITEMS: Item[] = [
   { titulo: 'Inicio', icono: 'home-outline', ruta: '/' },
   { titulo: 'Escanear', icono: 'scan-outline', ruta: '/escanear' },
   { titulo: 'Lote por ubicación', icono: 'albums-outline', ruta: '/lote' },
+  { titulo: 'Mis relevamientos', icono: 'time-outline', ruta: '/relevamientos' },
+  { titulo: 'Registrar hallazgo', icono: 'add-circle-outline', ruta: '/hallazgo/nuevo' },
+  { titulo: 'Exportar', icono: 'download-outline', ruta: '/exportar' },
   { titulo: 'Buscar bienes', icono: 'search-outline', ruta: '/buscar' },
   { titulo: 'Cuentas', icono: 'people-outline', ruta: '/cuentas', soloAdministrador: true },
   { titulo: 'Actividad', icono: 'list-outline', ruta: '/actividad', soloAdministrador: true },

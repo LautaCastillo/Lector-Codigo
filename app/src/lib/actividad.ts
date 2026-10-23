@@ -1,21 +1,23 @@
 import type { EventoAuditoriaDto } from '@patrimonio/shared';
 
-export type Categoria = 'cuentas' | 'sesiones' | 'consultas';
+export type Categoria = 'cuentas' | 'sesiones' | 'relevamientos' | 'consultas';
 
 export const CATEGORIAS: { valor: Categoria; titulo: string }[] = [
   { valor: 'cuentas', titulo: 'Cuentas' },
   { valor: 'sesiones', titulo: 'Sesiones' },
+  { valor: 'relevamientos', titulo: 'Relevamientos' },
   { valor: 'consultas', titulo: 'Consultas' },
 ];
 
 /** Agrupa los tipos de evento para poder filtrarlos desde la pantalla. */
 export function categoria(tipo: string): Categoria {
   if (tipo === 'SESION_INICIADA') return 'sesiones';
+  if (tipo === 'RELEVAMIENTO_REGISTRADO' || tipo === 'EXPORTACION_GENERADA' || tipo === 'FOTO_ADJUNTADA' || tipo === 'HALLAZGO_VINCULADO') return 'relevamientos';
   if (tipo === 'AUDITORIA_CONSULTADA') return 'consultas';
   return 'cuentas';
 }
 
-type Datos = { accion?: string; rolAnterior?: string; rolNuevo?: string; estadoInicial?: string } | null;
+type Datos = { accion?: string; rolAnterior?: string; rolNuevo?: string; estadoInicial?: string; cantidad?: number; ubicacion?: string | null; filas?: number; formato?: string; codigoProvisorio?: string | null; numeroInventario?: string } | null;
 
 const ROL: Record<string, string> = { administrador: 'administrador', relevador: 'relevador' };
 
@@ -40,6 +42,16 @@ export function describirEvento(e: EventoAuditoriaDto, nombre: (id: string | nul
     }
     case 'ROL_CAMBIADO':
       return `${actor} cambió el rol de ${afectada}${datos?.rolAnterior && datos.rolNuevo ? ` de ${datos.rolAnterior} a ${datos.rolNuevo}` : ''}`;
+    case 'RELEVAMIENTO_REGISTRADO': {
+      const n = datos?.cantidad ?? 0;
+      return `${actor} registró ${n} relevamiento${n === 1 ? '' : 's'}${datos?.ubicacion ? ` en ${datos.ubicacion}` : ''}`;
+    }
+    case 'FOTO_ADJUNTADA':
+      return `${actor} adjuntó la foto de un hallazgo`;
+    case 'HALLAZGO_VINCULADO':
+      return `${actor} vinculó un hallazgo${datos?.codigoProvisorio ? ` (${datos.codigoProvisorio})` : ''} con el bien ${datos?.numeroInventario ?? ''}`.trim();
+    case 'EXPORTACION_GENERADA':
+      return `${actor} exportó ${datos?.filas ?? 0} relevamiento${datos?.filas === 1 ? '' : 's'} a ${(datos?.formato ?? 'archivo').toUpperCase()}`;
     case 'SESION_INICIADA':
       return `${actor} inició sesión`;
     case 'AUDITORIA_CONSULTADA':

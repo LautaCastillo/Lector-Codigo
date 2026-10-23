@@ -40,6 +40,21 @@ enum Rol {
   relevador
 }
 
+enum ResultadoRelevamiento {
+  encontrado
+  no_encontrado
+  sin_verificar
+  /// Algo que se vio en campo y no se pudo asociar a un bien del catálogo.
+  hallazgo
+}
+
+/// no_identificado: existe pero no se pudo asociar (código dañado, ilegible o ausente).
+/// nuevo: la persona cree que no figura en el catálogo. La diferencia exacta se acuerda con Patrimonio.
+enum ClaseHallazgo {
+  no_identificado
+  nuevo
+}
+
 /// pendiente -> activa | rechazada; activa <-> suspendida; baja es lógica y definitiva.
 enum EstadoCuenta {
   pendiente
@@ -120,22 +135,36 @@ model CodigoBien {
 }
 
 model Relevamiento {
-  id                    String      @id @default(uuid())
+  id                    String                @id @default(uuid())
   /// UUID generado en el dispositivo; vuelve idempotente la subida.
-  idCliente             String      @unique
+  idCliente             String                @unique
   bienId                String?
-  bien                  Bien?       @relation(fields: [bienId], references: [id])
+  bien                  Bien?                 @relation(fields: [bienId], references: [id])
   usuarioId             String
-  usuario               Usuario     @relation(fields: [usuarioId], references: [id])
+  usuario               Usuario               @relation(fields: [usuarioId], references: [id])
   simbologia            Simbologia?
   valorLeido            String?
   estadoDetectado       String?
   observaciones         String?
+  /// Qué se encontró al leer el código. `sin_verificar`: se leyó sin conexión y no se pudo comprobar.
+  resultado             ResultadoRelevamiento
+  /// Ubicación física en la que se relevó (la que el relevador eligió al empezar el lote).
+  ubicacionObservada    String?
+  /// UUID del lote del que forma parte, generado en el dispositivo.
+  loteId                String?
+  /// Solo en hallazgos: qué es lo que se encontró y de qué clase.
+  clase                 ClaseHallazgo?
+  descripcion           String?
+  numeroSerie           String?
+  /// Identificador interno de un hallazgo (H-XXXXXXXX), hasta que se vincule a un bien del catálogo.
+  codigoProvisorio      String?               @unique
+  foto                  FotoRelevamiento?
   relevadoEnDispositivo DateTime
-  sincronizadoEn        DateTime    @default(now())
+  sincronizadoEn        DateTime              @default(now())
 
   @@index([bienId])
-  @@index([usuarioId])
+  @@index([usuarioId, relevadoEnDispositivo])
+  @@index([loteId])
   @@map("relevamiento")
 }
 
@@ -156,12 +185,15 @@ model HistorialCambio {
 }
 
 model Exportacion {
-  id        String   @id @default(uuid())
-  usuarioId String
-  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
-  formato   String
-  filtros   Json?
-  creadoEn  DateTime @default(now())
+  id         String   @id @default(uuid())
+  usuarioId  String
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id])
+  formato    String
+  filtros    Json?
+  /// Cantidad de filas del archivo y su huella SHA-256: permiten comprobar después que no cambió.
+  filas      Int      @default(0)
+  hashSha256 String?
+  creadoEn   DateTime @default(now())
 
   @@map("exportacion")
 }
@@ -220,4 +252,19 @@ model CambioFila {
   @@index([tabla, filaId])
   @@index([en])
   @@map("cambio_fila")
+}
+
+/// Foto de un hallazgo. Se guarda en la base (una por relevamiento, hasta 1 MB) para no sumar un servicio
+/// de almacenamiento; si el volumen crece conviene moverla a un bucket (decisión pendiente con Patrimonio).
+model FotoRelevamiento {
+  id             String       @id @default(uuid())
+  relevamientoId String       @unique
+  relevamiento   Relevamiento @relation(fields: [relevamientoId], references: [id])
+  tipo           String
+  tamano         Int
+  hashSha256     String
+  contenido      Bytes
+  creadoEn       DateTime     @default(now())
+
+  @@map("foto_relevamiento")
 }
