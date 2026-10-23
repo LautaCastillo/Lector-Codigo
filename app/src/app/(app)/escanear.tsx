@@ -16,7 +16,7 @@ const IGNORAR_REPETIDO_MS = 2000;
 type Estado =
   | { tipo: 'listo' }
   | { tipo: 'consultando' }
-  | { tipo: 'resultado'; leido: string; resultado: ResultadoEscaneoDto }
+  | { tipo: 'resultado'; leido: string; simbologia: string; resultado: ResultadoEscaneoDto }
   | { tipo: 'error'; mensaje: string };
 
 export default function Escanear() {
@@ -50,7 +50,7 @@ export default function Escanear() {
       void Haptics.notificationAsync(
         resultado.encontrado ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning,
       );
-      setEstado({ tipo: 'resultado', leido: data, resultado });
+      setEstado({ tipo: 'resultado', leido: data, simbologia: type, resultado });
     } catch (error) {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setEstado({ tipo: 'error', mensaje: error instanceof Error ? error.message : 'Error de red' });
@@ -62,6 +62,9 @@ export default function Escanear() {
     ocupado.current = false;
     setEstado({ tipo: 'listo' });
   };
+
+  const registrar = (numero: string, simbologia: string, leido: string) =>
+    router.push({ pathname: '/relevamiento/nuevo', params: { numero, simbologia, leido } });
 
   const verFicha = (numero: string) => router.push({ pathname: '/bien/[numero]', params: { numero } });
 
@@ -132,7 +135,8 @@ export default function Escanear() {
               )}
               <Etiquetas bien={bien} />
             </View>
-            <Boton texto="Ver ficha completa" onPress={() => verFicha(bien.numeroInventario)} />
+            <Boton texto="Registrar relevamiento" onPress={() => registrar(bien.numeroInventario, estado.simbologia, estado.leido)} />
+            <Boton texto="Ver ficha completa" variante="secundario" onPress={() => verFicha(bien.numeroInventario)} />
             <Boton texto="Escanear otro" variante="secundario" onPress={escanearOtro} />
           </>
         )}
@@ -141,6 +145,7 @@ export default function Escanear() {
             <Text style={e.titulo}>Bien no encontrado</Text>
             <Text style={e.texto}>Código leído: {estado.leido}</Text>
             <Boton texto="Buscar manualmente" onPress={() => router.push({ pathname: '/buscar', params: { q: estado.leido } })} />
+            <Boton texto="Registrar hallazgo" variante="secundario" onPress={() => router.push({ pathname: '/hallazgo/nuevo', params: { simbologia: estado.simbologia, leido: estado.leido } })} />
             <Boton texto="Escanear otro" variante="secundario" onPress={escanearOtro} />
           </>
         )}

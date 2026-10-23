@@ -550,7 +550,12 @@ function Resumen({ lote, alCambiar, alSeguir, alCerrar }: { lote: Lote; alCambia
           )}
         </Seccion>
         <Seccion titulo={`Fuera del catálogo (${r.noEncontrados.length})`} inicialAbierta={r.noEncontrados.length > 0}>
-          {r.noEncontrados.length === 0 ? <Text style={e.suave}>Todo lo escaneado está en el catálogo.</Text> : r.noEncontrados.map((i) => <FilaItem key={i.clave} item={i} />)}
+          {r.noEncontrados.length === 0 ? <Text style={e.suave}>Todo lo escaneado está en el catálogo.</Text> : r.noEncontrados.map((i) => (
+              <View key={i.clave} style={{ gap: 6 }}>
+                <FilaItem item={i} />
+                <Boton texto="Registrar como hallazgo" variante="secundario" onPress={() => router.push({ pathname: '/hallazgo/nuevo', params: { simbologia: i.simbologia, leido: i.leido } })} />
+              </View>
+            ))}
         </Seccion>
         <Seccion titulo={`Encontrados (${r.encontrados.length})`} inicialAbierta={false}>
           {r.encontrados.map((i) => (

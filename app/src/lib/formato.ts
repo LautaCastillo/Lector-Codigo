@@ -66,12 +66,24 @@ export const ETIQUETA_RESULTADO: Record<string, string> = {
   encontrado: 'Encontrado',
   no_encontrado: 'No está en el catálogo',
   sin_verificar: 'Sin verificar',
+  hallazgo: 'Hallazgo',
+};
+
+export const ETIQUETA_CLASE: Record<string, string> = {
+  no_identificado: 'No identificado',
+  nuevo: 'Nuevo',
+};
+
+export const EXPLICACION_CLASE: Record<string, string> = {
+  no_identificado: 'Existe, pero no se pudo asociar al catálogo: código dañado, ilegible o ausente.',
+  nuevo: 'Quien lo relevó cree que no figura en el catálogo.',
 };
 
 export const EXPLICACION_RESULTADO: Record<string, string> = {
   encontrado: 'El código leído corresponde a un bien del catálogo.',
   no_encontrado: 'El código leído no corresponde a ningún bien del catálogo.',
   sin_verificar: 'Se leyó sin conexión y no se pudo comprobar si está en el catálogo.',
+  hallazgo: 'Algo que se vio en campo y no se pudo asociar a un bien del catálogo.',
 };
 
 export const ETIQUETA_CODIGO: Record<string, string> = {

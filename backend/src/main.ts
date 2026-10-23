@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module.js';
+import { configurarApp } from './configurar-app.js';
 
 try {
   process.loadEnvFile();
@@ -11,8 +12,7 @@ try {
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  // Una subida de 500 relevamientos pesa unos 130 KB: el límite por defecto (100 KB) la rechazaría.
-  app.useBodyParser('json', { limit: '1mb' });
+  configurarApp(app);
   await app.listen(process.env.PORT ?? 3000);
 }
 await bootstrap();

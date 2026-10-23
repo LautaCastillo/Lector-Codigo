@@ -11,7 +11,7 @@ interface Funcion {
   titulo: string;
   detalle: string;
   icono: keyof typeof Ionicons.glyphMap;
-  ruta?: '/escanear' | '/buscar' | '/lote' | '/relevamientos';
+  ruta?: '/escanear' | '/buscar' | '/lote' | '/relevamientos' | '/exportar' | '/hallazgo/nuevo';
 }
 
 // Las funciones sin ruta todavía no existen: se muestran para ver el recorrido completo y quedan deshabilitadas.
@@ -20,9 +20,9 @@ const FUNCIONES: Funcion[] = [
   { titulo: 'Lote por ubicación', detalle: 'Escanear en ráfaga', icono: 'albums-outline', ruta: '/lote' },
   { titulo: 'Mis relevamientos', detalle: 'Historial de escaneos', icono: 'time-outline', ruta: '/relevamientos' },
   { titulo: 'Buscar bienes', detalle: 'Por número o descripción', icono: 'search-outline', ruta: '/buscar' },
-  { titulo: 'Nuevo bien', detalle: 'Sin código o dañado', icono: 'add-circle-outline' },
+  { titulo: 'Hallazgo', detalle: 'Sin código o fuera del catálogo', icono: 'add-circle-outline', ruta: '/hallazgo/nuevo' },
   { titulo: 'Pendientes', detalle: 'Cambios sin sincronizar', icono: 'sync-outline' },
-  { titulo: 'Exportar', detalle: 'PDF o CSV con filtros', icono: 'download-outline' },
+  { titulo: 'Exportar', detalle: 'CSV de relevamientos', icono: 'download-outline', ruta: '/exportar' },
 ];
 
 const SEPARACION = 14;

@@ -21,6 +21,9 @@ export const TIPOS_EVENTO_AUDITORIA = [
   'ROL_CAMBIADO',
   'SESION_INICIADA',
   'RELEVAMIENTO_REGISTRADO',
+  'FOTO_ADJUNTADA',
+  'HALLAZGO_VINCULADO',
+  'EXPORTACION_GENERADA',
   'AUDITORIA_CONSULTADA',
 ] as const;
 export type TipoEventoAuditoria = (typeof TIPOS_EVENTO_AUDITORIA)[number];
@@ -112,9 +115,28 @@ export interface ResultadoEscaneoDto {
   bien?: BienDto;
 }
 
-export const RESULTADOS_RELEVAMIENTO = ['encontrado', 'no_encontrado', 'sin_verificar'] as const;
-/** `sin_verificar`: se leyó sin conexión y no se pudo comprobar si el bien está en el catálogo. */
+/**
+ * Estados físicos que se pueden declarar al relevar. Son los valores que trae el catálogo de SIU en los
+ * bienes cargados; la lista definitiva (cerrada) está pendiente de acordar con Patrimonio.
+ */
+export const ESTADOS_OBSERVABLES = ['Muy Bueno', 'Bueno', 'Malo'] as const;
+
+export const RESULTADOS_RELEVAMIENTO = ['encontrado', 'no_encontrado', 'sin_verificar', 'hallazgo'] as const;
+/**
+ * `sin_verificar`: se leyó sin conexión y no se pudo comprobar si el bien está en el catálogo.
+ * `hallazgo`: algo visto en campo que no se pudo asociar a un bien del catálogo (ver `ClaseHallazgo`).
+ */
 export type ResultadoRelevamiento = (typeof RESULTADOS_RELEVAMIENTO)[number];
+
+export const CLASES_HALLAZGO = ['no_identificado', 'nuevo'] as const;
+/**
+ * `no_identificado`: existe, pero no se pudo asociar al catálogo (código dañado, ilegible o ausente).
+ * `nuevo`: la persona cree que no figura en el catálogo. La diferencia exacta se acuerda con Patrimonio.
+ */
+export type ClaseHallazgo = (typeof CLASES_HALLAZGO)[number];
+
+/** Foto de un hallazgo: un solo JPEG de hasta este tamaño, en bytes. */
+export const MAX_BYTES_FOTO = 1_000_000;
 
 /** Contrato de subida de relevamientos; idCliente (UUID) garantiza idempotencia. */
 export interface RelevamientoDto {
@@ -123,6 +145,10 @@ export interface RelevamientoDto {
   loteId?: string;
   /** Obligatorio cuando el resultado es `encontrado`. */
   numeroInventario?: string;
+  /** Solo en hallazgos. La clase y la descripción son obligatorias. */
+  clase?: ClaseHallazgo;
+  descripcion?: string;
+  numeroSerie?: string;
   simbologia?: Simbologia;
   valorLeido?: string;
   resultado: ResultadoRelevamiento;
@@ -151,10 +177,19 @@ export interface RelevamientoRegistradoDto {
   ubicacionObservada: string | null;
   observaciones: string | null;
   estadoDetectado: string | null;
+  /** Solo en hallazgos. */
+  clase: ClaseHallazgo | null;
+  descripcion: string | null;
+  numeroSerie: string | null;
+  /** Identificador interno (H-XXXXXXXX) mientras el hallazgo no se vincule a un bien del catálogo. */
+  codigoProvisorio: string | null;
+  tieneFoto: boolean;
   /** Hora del reloj del dispositivo y hora en que llegó al servidor (ISO 8601). */
   relevadoEnDispositivo: string;
   sincronizadoEn: string;
   /** Nombre o cuenta de quien relevó. */
   relevador: string | null;
+  /** El relevamiento es de la cuenta que consulta (solo esos se pueden abrir en detalle). */
+  propio: boolean;
   bien: BienDto | null;
 }

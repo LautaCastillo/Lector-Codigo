@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from 'react-native';
 import { Etiquetas } from '../../components/bien';
+import { Boton } from '../../components/ui';
 import { buscarBienes } from '../../lib/api';
 import { radio, useEstilos, useTema, type Paleta } from '../../lib/tema';
 
@@ -77,6 +78,9 @@ export default function Buscar() {
         {buscando && <ActivityIndicator color={c.accion} />}
         {error && <Text style={e.error}>{error}</Text>}
         {valida && !buscando && !error && resultados?.length === 0 && <Text style={e.ayuda}>No se encontraron bienes para “{consulta}”.</Text>}
+        {valida && !buscando && !error && resultados?.length === 0 && (
+          <Boton texto="No lo encuentro: registrar hallazgo" variante="secundario" onPress={() => router.push('/hallazgo/nuevo')} />
+        )}
         {resultados && resultados.length >= 30 && <Text style={e.ayuda}>Se muestran los primeros 30 resultados. Afiná la búsqueda para ver otros.</Text>}
       </View>
 

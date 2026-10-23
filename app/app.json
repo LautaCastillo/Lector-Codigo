@@ -28,6 +28,15 @@
         {
           "faceIDPermission": "Se usa el rostro para desbloquear la app."
         }
+      ],
+      "expo-sharing",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "La cámara se usa para sacar la foto de un hallazgo.",
+          "photosPermission": false,
+          "microphonePermission": false
+        }
       ]
     ],
     "android": {

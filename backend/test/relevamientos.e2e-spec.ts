@@ -42,9 +42,14 @@ function tablaRelevamiento(personas: Map<string, { cuenta: string; nombre: strin
   });
   return {
     filas,
-    findMany: async ({ where, take }: { where: { idCliente?: { in: string[] }; usuarioId?: string }; take?: number }) =>
+    findMany: async ({ where, take }: { where: { idCliente?: { in: string[] }; usuarioId?: string; bienId?: string }; take?: number }) =>
       filas
-        .filter((f) => (!where.idCliente || where.idCliente.in.includes(f.idCliente)) && (!where.usuarioId || f.usuarioId === where.usuarioId))
+        .filter(
+          (f) =>
+            (!where.idCliente || where.idCliente.in.includes(f.idCliente)) &&
+            (!where.usuarioId || f.usuarioId === where.usuarioId) &&
+            (!where.bienId || f.bienId === where.bienId),
+        )
         .slice(0, take)
         .map(conRelaciones),
     findUnique: async ({ where }: { where: { id: string } }) => {
@@ -65,7 +70,10 @@ describe('Relevamientos: subida idempotente, listado y detalle (e2e)', () => {
   ]);
   const tabla = tablaRelevamiento(personas);
   const base = Object.assign(baseFalsa([fila('rel', 'activa'), fila('otro', 'activa'), fila('admin', 'activa', 'administrador'), fila('pend', 'pendiente')]), {
-    bien: { findMany: async ({ where }: { where: { numeroInventario: { in: string[] } } }) => (where.numeroInventario.in.includes('00006349') ? [{ id: 'b1', numeroInventario: '00006349' }] : []) },
+    bien: {
+      findFirst: async ({ where }: { where: { numeroInventario: { in: string[] } } }) => (where.numeroInventario.in.includes('00006349') ? { id: 'b1' } : null),
+      findMany: async ({ where }: { where: { numeroInventario: { in: string[] } } }) => (where.numeroInventario.in.includes('00006349') ? [{ id: 'b1', numeroInventario: '00006349' }] : []),
+    },
     relevamiento: tabla,
   });
   let app: INestApplication;
@@ -167,8 +175,27 @@ describe('Relevamientos: subida idempotente, listado y detalle (e2e)', () => {
     await request(http).get('/relevamientos/no-existe').set(como('rel')).expect(404);
   });
 
+  it('registra un relevamiento individual con estado físico y observaciones', async () => {
+    const individual = { ...encontrado(20), loteId: undefined, simbologia: undefined, valorLeido: undefined, estadoDetectado: 'Malo', observaciones: 'Pata rota', ubicacionObservada: 'Oficina 12' };
+    const r = await request(http).post('/relevamientos').set(como('otro')).send({ relevamientos: [individual] }).expect(201);
+    expect(r.body).toEqual({ registrados: 1, duplicados: 0, rechazados: [] });
+    expect(tabla.filas.find((f) => f.idCliente === uuid(20))).toMatchObject({ usuarioId: 'id-otro', bienId: 'b1', loteId: null, estadoDetectado: 'Malo', observaciones: 'Pata rota', ubicacionObservada: 'Oficina 12' });
+  });
+
+  it('lista los relevamientos de un bien de cualquier relevador y marca cuáles son propios', async () => {
+    const r = await request(http).get('/bienes/6349/relevamientos').set(como('rel')).expect(200);
+    const propios = r.body.filter((x: { propio: boolean }) => x.propio).length;
+    expect(r.body.length).toBeGreaterThanOrEqual(2);
+    expect(propios).toBeGreaterThan(0);
+    expect(propios).toBeLessThan(r.body.length);
+    expect(r.body.every((x: { bien: { numeroInventario: string } }) => x.bien.numeroInventario === '00006349')).toBe(true);
+    await request(http).get('/bienes/99999999/relevamientos').set(como('rel')).expect(404);
+    await request(http).get('/bienes/6349/relevamientos?limite=x').set(como('rel')).expect(400);
+    await request(http).get('/bienes/6349/relevamientos').set(como('pend')).expect(403);
+  });
+
   it('la actividad refleja el registro de relevamientos', async () => {
-    expect(base.eventos.filter((e) => e.tipo === 'RELEVAMIENTO_REGISTRADO')).toHaveLength(2);
+    expect(base.eventos.filter((e) => e.tipo === 'RELEVAMIENTO_REGISTRADO')).toHaveLength(3);
     const r = await request(http).get('/me/actividad').set(como('rel')).expect(200);
     expect(r.body.some((e: { tipo: string }) => e.tipo === 'RELEVAMIENTO_REGISTRADO')).toBe(true);
   });

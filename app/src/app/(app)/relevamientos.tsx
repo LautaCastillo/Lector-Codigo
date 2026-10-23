@@ -92,6 +92,7 @@ export default function MisRelevamientos() {
           const encontrados = g.items.filter((x) => x.resultado === 'encontrado').length;
           const fuera = g.items.filter((x) => x.resultado === 'no_encontrado').length;
           const sin = g.items.filter((x) => x.resultado === 'sin_verificar').length;
+          const hallazgos = g.items.filter((x) => x.resultado === 'hallazgo').length;
           return (
             <Seccion
               key={g.clave}
@@ -103,6 +104,7 @@ export default function MisRelevamientos() {
                 {fechaHora(g.cuando)} · {encontrados} encontrado{encontrados === 1 ? '' : 's'}
                 {fuera ? ` · ${fuera} fuera del catálogo` : ''}
                 {sin ? ` · ${sin} sin verificar` : ''}
+                {hallazgos ? ` · ${hallazgos} hallazgo${hallazgos === 1 ? '' : 's'}` : ''}
               </Text>
               {g.items.map((r) => (
                 <Pressable
@@ -113,10 +115,10 @@ export default function MisRelevamientos() {
                   style={({ pressed }) => [e.fila, pressed && { opacity: 0.8 }]}
                 >
                   <View style={{ flex: 1, gap: 3 }}>
-                    <Text style={e.numero}>{r.bien?.numeroInventario ?? r.valorLeido ?? 'Sin código'}</Text>
-                    {r.bien && (
+                    <Text style={e.numero}>{r.resultado === 'hallazgo' ? (r.codigoProvisorio ?? 'Hallazgo') : (r.bien?.numeroInventario ?? r.valorLeido ?? 'Sin código')}</Text>
+                    {(r.bien || r.descripcion) && (
                       <Text style={e.suave} numberOfLines={1}>
-                        {r.bien.descripcion ?? 'Sin descripción'}
+                        {r.resultado === 'hallazgo' ? r.descripcion : (r.bien?.descripcion ?? 'Sin descripción')}
                       </Text>
                     )}
                     <ChipResultado resultado={r.resultado} />
