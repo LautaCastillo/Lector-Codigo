@@ -9,10 +9,12 @@ import {
   Post,
 } from '@nestjs/common';
 import { esSimbologia, type EscaneoDto, type Simbologia } from '@patrimonio/shared';
+import { Roles } from '../auth/roles.decorator.js';
 import { CONFIG } from '../config/config.module.js';
 import type { Config } from '../config/config.js';
 import { BienesService } from './bienes.service.js';
 
+@Roles('administrador', 'relevador')
 @Controller()
 export class BienesController {
   constructor(

@@ -94,7 +94,7 @@ Si se usa otra versión de Node en otros proyectos, instalar `nvm-windows` y alt
 - Los archivos `.env` no se versionan y deben recrearse en cada computadora.
 - La base de datos local no se sincroniza entre computadoras: cada una tiene su propio volumen de Docker.
 - Las credenciales de SIU (`SIU_USUARIO`, `SIU_CLAVE`) deben cargarse solo en el `.env` local del backend. No subirlas al repositorio ni compartirlas en chats.
-- La API provisoria acepta cualquier valor en `x-relevador`. No exponerla a internet sin definir `API_KEY` o el login institucional.
+- El backend no arranca sin `SUPABASE_URL`. `AUTH_PROVISORIA=true` habilita la identidad por cabecera `x-relevador` (acepta cualquier valor): usarlo solo en desarrollo o pruebas; con `NODE_ENV=production` se rechaza.
 
 ## 4. Pendientes
 
@@ -135,7 +135,7 @@ Si se usa otra versión de Node en otros proyectos, instalar `nvm-windows` y alt
 
 ## 8. Sesión y cuentas (22/10/2026)
 
-- Autenticación con Supabase Auth (correo y contraseña). La app inicia sesión con `@supabase/supabase-js`; el backend valida el token con las claves públicas del proyecto (`SUPABASE_URL` en `backend/.env`). Sin `SUPABASE_URL` rige la cabecera provisoria `x-relevador` (desarrollo y pruebas).
+- Autenticación con Supabase Auth (correo y contraseña). La app inicia sesión con `@supabase/supabase-js`; el backend valida el token con las claves públicas del proyecto (`SUPABASE_URL` en `backend/.env`). Sin `SUPABASE_URL` el backend no arranca, salvo `AUTH_PROVISORIA=true` (cabecera `x-relevador`, solo desarrollo y pruebas).
 - Las cuentas nuevas nacen inactivas (`usuario.activo = false`) y un administrador debe habilitarlas. `GET /me` informa el estado a la app.
 - Para aprobar una cuenta: poner `activo = true` (y `rol` si corresponde) en la tabla `usuario`. Todavía no hay pantalla de administración.
 - Cuenta de prueba: usuario `adminlauta` (administrador). Es provisoria: cambiar la contraseña o eliminarla antes de cargar datos reales.
@@ -158,3 +158,26 @@ Si se usa otra versión de Node en otros proyectos, instalar `nvm-windows` y alt
 - Se cargaron 55 bienes de prueba. Campos nuevos en `bien`: catálogo, motivo de alta, número anterior y expediente.
 - El listado exportado no incluye "responsable de uso" (SIU lo ofrece como columna opcional).
 - Pendiente: descarga automática del catálogo al dispositivo (SQLite) para el uso sin conexión; importación desde la app por un administrador; normalizar áreas, ubicaciones y catálogo en tablas propias.
+
+## 11. Estados de cuenta, aprobación y roles (23/10/2026)
+
+Puntos 3 y 4 de la sección 3.5 de `plan-de-mejoras-y-decisiones.md`.
+
+- **Estados:** `pendiente` (al registrarse), `activa`, `rechazada`, `suspendida` y `baja` (definitiva). Reemplazan al booleano `activo`. Campos nuevos en `usuario`: `estado`, `aprobadoPor`, `aprobadoEn`, `motivoEstado`, `ultimoAccesoEn`. Migración `estados_de_cuenta`: las cuentas activas siguen activas y las inactivas quedan suspendidas.
+- **Transiciones** (`backend/src/usuarios/usuarios.service.ts`): aprobar (desde pendiente o rechazada), rechazar (pendiente), suspender (activa), reactivar (suspendida) y baja. Rechazar, suspender y dar de baja exigen un motivo de 3 a 200 caracteres.
+- **Endpoints de administración** (solo rol administrador): `GET /admin/usuarios?estado=`, `POST /admin/usuarios/:id/{aprobar|rechazar|suspender|reactivar|baja}` y `PATCH /admin/usuarios/:id/rol` (con motivo). Un administrador no puede cambiar su propia cuenta ni su rol, lo que impide quedarse sin administradores activos.
+- **Autorización por rol con denegación por defecto** (`RolesGuard`): cada endpoint debe declarar `@Publico()`, `@PermitirInactivo()` (solo `GET /me`) o `@Roles(...)`. Un endpoint nuevo sin decorador responde 403. Una cuenta que no está activa recibe 403 salvo en `GET /me`.
+- **App:** pantalla "Cuentas" (solo administradores, desde el menú) para aprobar, rechazar, suspender y reactivar; la pantalla de cuenta no activa muestra el mensaje de cada estado.
+- **Primer administrador:** nadie puede aprobarlo. Se designa en la base: `UPDATE usuario SET estado = 'activa', rol = 'administrador' WHERE cuenta = '<correo>';`. Registrar el procedimiento en el runbook.
+- **Pendiente:** la tabla `evento_auditoria` (sección 4 del plan). Hoy el motivo del último cambio queda en `motivoEstado` y no hay historial de cambios anteriores. Tampoco se revocan sesiones al suspender: el efecto llega cuando vence el token (hasta 1 hora con la configuración actual de Supabase).
+- **Dato suelto:** existe una cuenta `relevador-app` creada por la autenticación provisoria anterior; conviene darla de baja.
+
+## 12. SecureStore y bloqueo de la app (23/10/2026)
+
+Punto 5 de la sección 3.5 del plan de mejoras.
+
+- **Sesión en almacén seguro:** la sesión de Supabase (access y refresh token) ya no se guarda en AsyncStorage sino en `expo-secure-store` (`app/src/lib/almacen-seguro.ts`), partida en trozos de 1000 caracteres por el límite de tamaño de cada valor. Las sesiones guardadas por la versión anterior se migran solas en el primer arranque. Accesible tras el primer desbloqueo del equipo y sin migrar a otro dispositivo.
+- **Bloqueo con PIN** (`app/src/lib/bloqueo.tsx`): al primer ingreso de cada sesión se crea un PIN de 6 dígitos (se rechazan repetidos y secuencias) y, si el teléfono lo permite, se puede activar huella o rostro. La app se bloquea en cada arranque y tras 5 minutos en segundo plano. El PIN se guarda con sal y SHA-256 en el almacén seguro. Con 5 intentos fallidos se cierra la sesión. Al cerrar sesión se borra el bloqueo. La biometría se usa sin `requireAuthentication` sobre el token, para no impedir el trabajo sin conexión, como indica el plan.
+- **Respaldo de Android:** el plugin de `expo-secure-store` quedó con `configureAndroidBackup: true` en `app.json`. Falta excluir la base SQLite cuando exista.
+- **Limitaciones:** el PIN de 6 dígitos protege contra el uso casual del teléfono, no contra alguien que extraiga el hash del almacén. No se verificó en un teléfono ni en una development build; la huella y el rostro y el efecto de `configureAndroidBackup` quedan sin probar. En Expo Go el rostro (Face ID) no está disponible en iOS.
+- **Pendiente:** cambiar o desactivar el PIN desde Ajustes, y recuperar el acceso sin cerrar sesión si se olvida.

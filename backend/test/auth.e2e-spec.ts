@@ -9,7 +9,10 @@ const prismaFalso = {
     upsert: async ({ where }: { where: { cuenta: string } }) => ({
       id: 'u1',
       cuenta: where.cuenta,
-      activo: true,
+      estado: 'activa',
+      rol: 'relevador',
+      nombre: null,
+      ultimoAccesoEn: null,
     }),
     update: async () => ({}),
   },
@@ -19,6 +22,7 @@ const prismaFalso = {
 
 describe('Autenticación provisoria (e2e)', () => {
   it('health es público, el resto exige x-relevador', async () => {
+    process.env.AUTH_PROVISORIA = 'true';
     const mod = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(PrismaService)
       .useValue(prismaFalso)
@@ -48,9 +52,10 @@ describe('Autenticación provisoria (e2e)', () => {
       .set('x-relevador', 'juan')
       .send({ nombre: 'Juan Pérez' })
       .expect(200)
-      .expect({ cuenta: 'juan', nombre: 'Juan Pérez', rol: 'relevador', activo: true });
+      .expect({ cuenta: 'juan', nombre: 'Juan Pérez', rol: 'relevador', estado: 'activa', activo: true });
     await request(http).patch('/me').set('x-relevador', 'juan').send({ nombre: 'a' }).expect(400);
     await app.close();
+    delete process.env.AUTH_PROVISORIA;
   });
 });
 

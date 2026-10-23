@@ -1,23 +1,32 @@
 import { BadRequestException, Body, Controller, Get, Inject, Patch } from '@nestjs/common';
-import { PermitirPendiente } from '../auth/pendiente.decorator.js';
+import { PermitirInactivo } from '../auth/inactivo.decorator.js';
+import { Roles } from '../auth/roles.decorator.js';
 import { Usuario } from '../auth/usuario.decorator.js';
 import type { UsuarioActual } from '../auth/relevador.guard.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
-const vista = ({ cuenta, nombre, rol, activo }: UsuarioActual) => ({ cuenta, nombre, rol, activo });
+/** `activo` se conserva para la app; el estado completo viaja en `estado`. */
+const vista = ({ cuenta, nombre, rol, estado }: UsuarioActual) => ({
+  cuenta,
+  nombre,
+  rol,
+  estado,
+  activo: estado === 'activa',
+});
 
 @Controller()
 export class UsuariosController {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
-  /** La app lo consulta tras iniciar sesión para saber si la cuenta ya fue aprobada. */
-  @PermitirPendiente()
+  /** La app lo consulta tras iniciar sesión para saber el estado de su cuenta (aunque no esté activa). */
+  @PermitirInactivo()
   @Get('me')
   yo(@Usuario() usuario: UsuarioActual) {
     return vista(usuario);
   }
 
   /** El usuario edita su propio nombre. Cuenta, rol y estado solo los cambia un administrador. */
+  @Roles('administrador', 'relevador')
   @Patch('me')
   async actualizar(@Usuario() usuario: UsuarioActual, @Body() body: { nombre?: unknown }) {
     const nombre = typeof body?.nombre === 'string' ? body.nombre.trim() : '';

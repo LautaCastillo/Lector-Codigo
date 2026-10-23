@@ -9,6 +9,21 @@ export type Titularidad = (typeof TITULARIDADES)[number];
 export const ROLES = ['administrador', 'relevador'] as const;
 export type Rol = (typeof ROLES)[number];
 
+export const ESTADOS_CUENTA = ['pendiente', 'activa', 'rechazada', 'suspendida', 'baja'] as const;
+export type EstadoCuenta = (typeof ESTADOS_CUENTA)[number];
+
+/** Cuenta tal como la ve el panel de administración. */
+export interface CuentaDto {
+  id: string;
+  cuenta: string;
+  nombre: string | null;
+  rol: Rol;
+  estado: EstadoCuenta;
+  creadoEn: string;
+  aprobadoEn: string | null;
+  motivoEstado: string | null;
+}
+
 export interface EscaneoDto {
   simbologia: Simbologia;
   valor: string;

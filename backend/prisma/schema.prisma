@@ -40,17 +40,33 @@ enum Rol {
   relevador
 }
 
+/// pendiente -> activa | rechazada; activa <-> suspendida; baja es lógica y definitiva.
+enum EstadoCuenta {
+  pendiente
+  activa
+  rechazada
+  suspendida
+  baja
+}
+
 model Usuario {
-  id            String            @id @default(uuid())
+  id             String            @id @default(uuid())
   /// Identificador provisorio (cabecera x-relevador) o cuenta institucional futura.
-  cuenta        String            @unique
-  nombre        String?
-  rol           Rol               @default(relevador)
-  activo        Boolean           @default(true)
-  creadoEn      DateTime          @default(now())
-  relevamientos Relevamiento[]
-  cambios       HistorialCambio[]
-  exportaciones Exportacion[]
+  cuenta         String            @unique
+  nombre         String?
+  rol            Rol               @default(relevador)
+  estado         EstadoCuenta      @default(pendiente)
+  /// Quién aprobó la cuenta, cuándo, y el motivo del último cambio de estado o de rol.
+  aprobadoPor    String?
+  aprobador      Usuario?          @relation("Aprobacion", fields: [aprobadoPor], references: [id], onDelete: SetNull)
+  aprobados      Usuario[]         @relation("Aprobacion")
+  aprobadoEn     DateTime?
+  motivoEstado   String?
+  ultimoAccesoEn DateTime?
+  creadoEn       DateTime          @default(now())
+  relevamientos  Relevamiento[]
+  cambios        HistorialCambio[]
+  exportaciones  Exportacion[]
 
   @@map("usuario")
 }

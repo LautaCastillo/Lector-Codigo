@@ -11,15 +11,17 @@ const ANCHO_MENU = 280;
 /** Desde este ancho (tablet o PC) el menú queda fijo a la izquierda en lugar de deslizarse. */
 const ANCHO_FIJO = 900;
 
-type Ruta = '/' | '/escanear' | '/perfil' | '/ajustes';
+type Ruta = '/' | '/escanear' | '/cuentas' | '/perfil' | '/ajustes';
 interface Item {
   titulo: string;
   icono: keyof typeof Ionicons.glyphMap;
   ruta: Ruta;
+  soloAdministrador?: boolean;
 }
 const ITEMS: Item[] = [
   { titulo: 'Inicio', icono: 'home-outline', ruta: '/' },
   { titulo: 'Escanear', icono: 'scan-outline', ruta: '/escanear' },
+  { titulo: 'Cuentas', icono: 'people-outline', ruta: '/cuentas', soloAdministrador: true },
   { titulo: 'Mi perfil', icono: 'person-outline', ruta: '/perfil' },
   { titulo: 'Ajustes', icono: 'settings-outline', ruta: '/ajustes' },
 ];
@@ -121,7 +123,7 @@ function Panel({ alElegir }: { alElegir: () => void }) {
           </View>
         </View>
         <View style={{ gap: 4 }}>
-          {ITEMS.map((item) => {
+          {ITEMS.filter((item) => !item.soloAdministrador || perfil?.rol === 'administrador').map((item) => {
             const activo = item.ruta === ruta;
             return (
               <Pressable

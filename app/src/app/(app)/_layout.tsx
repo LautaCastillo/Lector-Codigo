@@ -16,6 +16,7 @@ export default function LayoutApp() {
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="escanear" options={{ title: 'Escanear bien' }} />
+        <Stack.Screen name="cuentas" options={{ title: 'Cuentas' }} />
         <Stack.Screen name="perfil" options={{ title: 'Mi perfil' }} />
         <Stack.Screen name="ajustes" options={{ title: 'Ajustes' }} />
       </Stack>

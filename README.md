@@ -87,7 +87,7 @@ Etapa de implementación. Última actualización: 22/10/2026.
 - Descarga automática del catálogo al dispositivo y uso sin conexión (SQLite) con sincronización.
 - Integración con SIU Diaguita desde el backend (`backend/src/siu/` vacío).
 - Pantallas de relevamientos, búsqueda, alta y edición de bienes, pendientes y exportación (el inicio las muestra como "Próximamente").
-- Administración de usuarios (hoy se aprueba una cuenta cambiando `activo` en la tabla `usuario`).
+- Auditoría append-only de cambios de cuenta y revocación de sesiones al suspender.
 - Login con nombre de usuario o correo resuelto en el servidor y recuperación de contraseña.
 - Tablas propias para áreas, ubicaciones, catálogo, empleados y responsables de uso.
 
@@ -97,8 +97,11 @@ Etapa de implementación. Última actualización: 22/10/2026.
 |---|---|
 | 22/10/2026 | La base de desarrollo pasa de Docker a Supabase. Migraciones: `init`, `habilita_rls` (RLS sin políticas, bloquea la API pública de Supabase) y `campos_siu` (catálogo, motivo de alta, número anterior y expediente). |
 | 22/10/2026 | Se crea la app Expo con la pantalla de escaneo; se fija en SDK 57 por compatibilidad con Expo Go. |
-| 22/10/2026 | Autenticación con Supabase Auth. El backend valida el token (`SUPABASE_URL`); sin esa variable rige la cabecera provisoria `x-relevador`, solo para desarrollo y pruebas. |
+| 22/10/2026 | Autenticación con Supabase Auth. El backend valida el token (`SUPABASE_URL`); sin esa variable el backend no arranca (salvo `AUTH_PROVISORIA=true`, solo para desarrollo y pruebas). |
 | 22/10/2026 | Interfaz con la paleta de la UNSa: login, registro, inicio con tarjetas, menú lateral, perfil editable, ajustes, modo oscuro, botón para ver la contraseña y diseño adaptable. |
+| 23/10/2026 | La sesión pasa a `expo-secure-store` y la app se bloquea con PIN (y huella o rostro opcionales) al abrirla y tras 5 minutos en segundo plano (punto 5 del plan de mejoras). |
+| 23/10/2026 | Estados de cuenta (pendiente, activa, rechazada, suspendida, baja), endpoints de aprobación para administradores, autorización por rol con denegación por defecto y pantalla "Cuentas" en la app (puntos 3 y 4 del plan de mejoras). |
+| 23/10/2026 | Seguridad: la autenticación falla cerrada y se elimina la API key del cliente y del backend (puntos 1 y 2 de la sección 3.5 del plan de mejoras). |
 | 22/10/2026 | Importador del listado "Bienes de uso" de SIU (`npm run importar -w backend -- archivo.xls`) y búsqueda por inventario completada a 8 dígitos. |
 
 ## Puesta en marcha en otra computadora

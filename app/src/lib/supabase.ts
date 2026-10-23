@@ -1,6 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { AppState } from 'react-native';
+import { almacenSeguro } from './almacen-seguro';
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const clave = process.env.EXPO_PUBLIC_SUPABASE_KEY;
@@ -10,7 +10,7 @@ if (!url || !clave) {
 
 // La clave publicable es pública por diseño; el acceso real lo controla el backend.
 export const supabase = createClient(url, clave, {
-  auth: { storage: AsyncStorage, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false },
+  auth: { storage: almacenSeguro, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false },
 });
 
 // Renovar el token solo con la app en primer plano.

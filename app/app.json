@@ -15,7 +15,20 @@
           "cameraPermission": "La cámara se usa para leer los códigos de barras de los bienes."
         }
       ],
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": false
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Se usa el rostro para desbloquear la app."
+        }
+      ]
     ],
     "android": {
       "package": "ar.edu.unsa.patrimonio.inventario",

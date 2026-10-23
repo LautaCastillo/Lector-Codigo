@@ -1,5 +1,7 @@
 import {
   SIMBOLOGIAS_POR_DEFECTO,
+  type CuentaDto,
+  type EstadoCuenta,
   type ResultadoEscaneoDto,
   type Simbologia,
 } from '@patrimonio/shared';
@@ -7,12 +9,12 @@ import { supabase } from './supabase';
 
 // En el celular, "localhost" es el propio teléfono: usar la IP de la PC en la red local.
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
-const API_KEY = process.env.EXPO_PUBLIC_API_KEY;
 
 export interface Perfil {
   cuenta: string;
   nombre: string | null;
   rol: 'administrador' | 'relevador';
+  estado: EstadoCuenta;
   activo: boolean;
 }
 
@@ -33,7 +35,6 @@ async function pedir<T>(ruta: string, init?: RequestInit): Promise<T> {
     headers: {
       'content-type': 'application/json',
       ...(token ? { authorization: `Bearer ${token}` } : {}),
-      ...(API_KEY ? { 'x-api-key': API_KEY } : {}),
     },
   });
   if (!respuesta.ok) {
@@ -47,6 +48,18 @@ export const obtenerPerfil = () => pedir<Perfil>('/me');
 
 export const actualizarNombre = (nombre: string) =>
   pedir<Perfil>('/me', { method: 'PATCH', body: JSON.stringify({ nombre }) });
+
+export type AccionCuenta = 'aprobar' | 'rechazar' | 'suspender' | 'reactivar' | 'baja';
+
+/** Solo administradores. Sin `estado` trae todas las cuentas. */
+export const listarCuentas = (estado?: EstadoCuenta) =>
+  pedir<CuentaDto[]>(`/admin/usuarios${estado ? `?estado=${estado}` : ''}`);
+
+export const cambiarEstadoCuenta = (id: string, accion: AccionCuenta, motivo?: string) =>
+  pedir<CuentaDto>(`/admin/usuarios/${encodeURIComponent(id)}/${accion}`, {
+    method: 'POST',
+    body: JSON.stringify(motivo ? { motivo } : {}),
+  });
 
 export function enviarEscaneo(simbologia: Simbologia, valor: string) {
   return pedir<ResultadoEscaneoDto>('/bienes/escaneo', {

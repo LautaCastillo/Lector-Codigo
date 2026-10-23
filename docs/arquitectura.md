@@ -14,7 +14,7 @@ Monorepo con npm workspaces.
 
 ## Autenticación provisoria
 
-`RelevadorGuard` (`backend/src/auth/`) exige `x-relevador` y, si existe `API_KEY`, `x-api-key`. Es el único punto a reemplazar por el login institucional.
+`RelevadorGuard` (`backend/src/auth/`) valida el token de Supabase Auth (`SUPABASE_URL`). Falla cerrada: sin esa variable el backend no arranca, salvo `AUTH_PROVISORIA=true` (identidad por `x-relevador`, solo desarrollo y pruebas, prohibido en producción). Es el único punto a reemplazar por el login institucional.
 
 ## Comandos
 
