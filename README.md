@@ -87,7 +87,7 @@ Etapa de implementación. Última actualización: 22/10/2026.
 - Descarga automática del catálogo al dispositivo y uso sin conexión (SQLite) con sincronización.
 - Integración con SIU Diaguita desde el backend (`backend/src/siu/` vacío).
 - Pantallas de relevamientos, búsqueda, alta y edición de bienes, pendientes y exportación (el inicio las muestra como "Próximamente").
-- Auditoría append-only de cambios de cuenta y revocación de sesiones al suspender.
+- Revocación de sesiones al suspender una cuenta.
 - Login con nombre de usuario o correo resuelto en el servidor y recuperación de contraseña.
 - Tablas propias para áreas, ubicaciones, catálogo, empleados y responsables de uso.
 
@@ -100,6 +100,9 @@ Etapa de implementación. Última actualización: 22/10/2026.
 | 22/10/2026 | Autenticación con Supabase Auth. El backend valida el token (`SUPABASE_URL`); sin esa variable el backend no arranca (salvo `AUTH_PROVISORIA=true`, solo para desarrollo y pruebas). |
 | 22/10/2026 | Interfaz con la paleta de la UNSa: login, registro, inicio con tarjetas, menú lateral, perfil editable, ajustes, modo oscuro, botón para ver la contraseña y diseño adaptable. |
 | 23/10/2026 | La sesión pasa a `expo-secure-store` y la app se bloquea con PIN (y huella o rostro opcionales) al abrirla y tras 5 minutos en segundo plano (punto 5 del plan de mejoras). |
+| 23/10/2026 | Escaneo por lotes por ubicación: escaneo en ráfaga con detección de repetidos, faltantes y bienes de otra ubicación, lote guardado en el teléfono y resumen para compartir. |
+| 23/10/2026 | Ficha del bien con historial, búsqueda manual y escáner con resumen, vibración, linterna y descarte de lecturas repetidas. |
+| 23/10/2026 | Auditoría append-only: `evento_auditoria` y `cambio_fila` con triggers, bloqueo de modificaciones, eventos de cuentas y sesiones, endpoints `GET /admin/auditoria` y `GET /me/actividad`, y pantalla "Actividad" para administradores. |
 | 23/10/2026 | Estados de cuenta (pendiente, activa, rechazada, suspendida, baja), endpoints de aprobación para administradores, autorización por rol con denegación por defecto y pantalla "Cuentas" en la app (puntos 3 y 4 del plan de mejoras). |
 | 23/10/2026 | Seguridad: la autenticación falla cerrada y se elimina la API key del cliente y del backend (puntos 1 y 2 de la sección 3.5 del plan de mejoras). |
 | 22/10/2026 | Importador del listado "Bienes de uso" de SIU (`npm run importar -w backend -- archivo.xls`) y búsqueda por inventario completada a 8 dígitos. |
@@ -144,7 +147,7 @@ Advertencias:
 4. Módulo de SIU Diaguita en el backend (requiere definir ambiente y cuenta de servicio, y rotar la cuenta `consulta.patrimonio`).
 5. Confirmar con Patrimonio las simbologías reales de las etiquetas y que el código equivale al número de inventario.
 
-El detalle de la puesta en marcha, las decisiones y los pendientes está en `docs/estado-y-retomar.md` y `CLAUDE.md`.
+La hoja de ruta vigente es `docs/plan-de-mejora-login-auditoria-siu.md` (con `docs/plan-de-mejoras-y-decisiones.md` como complemento). El estado por fases y las decisiones pendientes están en `docs/estado-y-retomar.md`; la guía para levantar el proyecto, en `docs/00-inicio/puesta-en-marcha.md`; el índice de toda la documentación, en `docs/README.md`.
 
 ## Mantenimiento
 

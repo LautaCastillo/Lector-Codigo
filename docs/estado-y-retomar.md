@@ -1,183 +1,104 @@
-# Estado del proyecto y guía para retomar en otra computadora
+# Estado del proyecto y cómo retomar
 
-Fecha de redacción: 22/10/2026.
+Actualizado el 23/10/2026. Rama `lautaPC`. Hoja de ruta vigente: [`plan-de-mejora-login-auditoria-siu.md`](plan-de-mejora-login-auditoria-siu.md). Para levantar el proyecto en otra computadora: [`00-inicio/puesta-en-marcha.md`](00-inicio/puesta-en-marcha.md). Historia detallada: [`06-bitacora/`](06-bitacora/).
 
-## 1. Estado actual
+## 1. Dónde estamos en el roadmap
 
-### Implementado y verificado
+Fases de la sección 4.4 del plan.
 
-- Monorepo con npm workspaces: `shared` y `backend`.
-- `shared`: simbologías y normalización de códigos (7 pruebas unitarias).
-- Backend NestJS 12 con Prisma 7 y PostgreSQL 16. Endpoints disponibles:
-  - `GET /health`
-  - `GET /configuracion/simbologias`
-  - `POST /bienes/escaneo`
-  - `GET /bienes/:numeroInventario`
-- Esquema de datos con las tablas `usuario`, `bien`, `codigo_bien`, `relevamiento`, `historial_cambio` y `exportacion`. La migración `init` está versionada en `backend/prisma/migrations/`.
-- Autenticación provisoria mediante un guard global (cabecera `x-relevador` y `API_KEY` opcional).
-- Compilación (`npm run build`), lint, pruebas unitarias (3) y pruebas e2e (2) correctas con Node 24.
-- Repositorio en GitHub: `https://github.com/LautaCastillo/Lector-Codigo.git`, rama `main`.
+| Fase | Contenido | Estado |
+|---|---|---|
+| 0. Cimientos | Estructura de `docs/`, ADR 0001 a 0006, consultas enviadas, CI con lint y pruebas | **En curso.** Hecho: estructura de `docs/` y lista de consultas. Falta: ADR, enviar las consultas, confirmar que el CI corre en GitHub |
+| 1. Seguridad | Autenticación propia, invitaciones, estados, roles, sesiones, `evento_auditoria` append-only, sin `x-relevador` ni `API_KEY` | **Parcial.** Ver la sección 2: la auditoría ya está; se decidió mantener Supabase Auth por ahora, aunque el plan recomienda reemplazarla |
+| 2. Núcleo sin conexión | `expo-sqlite`, catálogo local, cola de salida, `/sync` idempotente, conflictos, relojes | No iniciada |
+| 3. UX de campo | Escaneo mejorado, ficha, búsqueda, lotes, indicador de conexión, accesibilidad | No iniciada |
+| 4. Gestión | Alta y edición con historial, resolución de conflictos, exportaciones, pantalla de actividad | No iniciada |
+| 5. Integración SIU | Puerto `FuentePatrimonio`, adaptadores de archivo y REST, caché | Parcial: existe el importador de Excel |
+| 6. Entrega | Runbook, traspaso, release Android, caso de estudio | No iniciada |
 
-### No implementado
+Figma corre en paralelo desde la fase 0 y debe estar listo antes de la fase 3. Todavía no se empezó.
 
-- Aplicación móvil (`app/`, Expo): no existe.
-- Sincronización y relevamientos desde el dispositivo (`backend/src/sync/` vacío).
-- Integración con SIU Diaguita (`backend/src/siu/` vacío).
-- Alta y edición de bienes con historial, exportación a PDF o CSV, roles y login institucional.
-- Carga inicial de bienes desde los listados de Patrimonio.
+## 2. Fase 1 contra lo que pide el plan
 
-### No verificado
+El plan (secciones 1.2 a 1.6) recomienda autenticación propia en NestJS, cuentas por invitación del administrador y quitar `supabase-js` de la app. Lo construido hasta ahora usa Supabase Auth con autorregistro y aprobación.
 
-- El flujo de escaneo con datos reales: la base local está vacía (0 bienes, 0 códigos, 0 relevamientos).
-- El workflow de CI (`.github/workflows/ci.yml`) está escrito, pero no se confirmó su ejecución en GitHub.
+| Requisito del plan | Estado |
+|---|---|
+| Quitar la confianza en `x-relevador` | **Hecho en producción.** Sin `SUPABASE_URL` el backend no arranca; `AUTH_PROVISORIA=true` solo existe en desarrollo |
+| Quitar la `API_KEY` embebida en la app | **Hecho** |
+| Guard global con denegación por defecto y guard de roles | **Hecho** (`@Publico()`, `@PermitirInactivo()`, `@Roles(...)`) |
+| Estados de cuenta con máquina de estados | **Parcial.** Hay `pendiente`, `activa`, `rechazada`, `suspendida` y `baja`; el plan propone `invitada`, `activa`, `suspendida` y `baja` |
+| Alta de cuentas por invitación del administrador | **No.** Hoy es autorregistro con aprobación, que el plan califica como "aceptable solo si el login es institucional" |
+| Autenticación propia: Argon2id, access token de 15 min, refresh rotativo, tabla `sesion`, endpoints `/auth/*` | **No.** Hoy la emite Supabase |
+| Puerto `IdentityProvider` intercambiable | **No** |
+| Quitar `@supabase/supabase-js` de la app | **No** |
+| Política de contraseñas (15 caracteres sin MFA, lista de contraseñas comunes) | **No.** Hoy el mínimo es 8 |
+| Límite de intentos con `@nestjs/throttler` | **No** |
+| Recuperación de contraseña por código del administrador | **No** |
+| Revocación remota de sesiones | **No.** Suspender no corta la sesión ya emitida |
+| Refresh token en `expo-secure-store` y bloqueo con biometría o PIN | **Hecho**, con una diferencia: se guarda la sesión completa y no solo el refresh token |
+| Access token solo en memoria | **No** |
+| Reautenticación tras 5 PIN fallidos | **Hecho** (cierra la sesión) |
+| Operaciones sin conexión de sesiones revocadas en `en_cuarentena` | **No** (depende de la fase 2) |
+| Excluir SQLite y SecureStore del backup de Android | **Parcial.** El plugin de SecureStore está configurado; no hay SQLite todavía |
+| `evento_auditoria` append-only y triggers | **Parcial.** Hecho: tabla `evento_auditoria`, tabla `cambio_fila` con triggers, `set_config` del actor, bloqueo de UPDATE, DELETE y TRUNCATE, y eventos de cuentas y sesiones. Falta: `LOGIN_FALLIDO` (solo con autenticación propia), relojes del dispositivo, cadena de hashes (opcional) y retirar al rol de la aplicación los permisos de UPDATE y DELETE (depende del ADR del rol de base de datos) |
+| Decidir en un ADR cómo conecta el backend a la base (RLS) | **No** |
 
-## 2. Cambios hechos en esta etapa
+## 3. Qué funciona hoy
 
-- `docker-compose.yml`: el puerto del host es configurable con `DB_PORT` (por defecto 5432).
-- `backend/src/main.ts`: carga `backend/.env` al arrancar con `process.loadEnvFile()`. Antes la aplicación no leía `DATABASE_URL` y devolvía error 500 al consultar la base.
+- **Backend** (NestJS, Prisma 7, Supabase): `/health`, `/configuracion/simbologias`, `POST /bienes/escaneo`, `GET /bienes/:numeroInventario`, `GET` y `PATCH /me`, y `/admin/usuarios` para aprobar, rechazar, suspender, reactivar, dar de baja y cambiar el rol.
+- **App** (Expo SDK 57): login, registro, cuenta pendiente, inicio, escáner, perfil editable, ajustes con modo claro y oscuro, menú lateral, pantalla de cuentas para administradores y bloqueo con PIN o biometría.
+- **Catálogo:** 55 bienes de prueba importados desde un listado de SIU (`npm run importar -w backend`), que es el camino (c) del plan. El escaneo resuelve el número de inventario con distinto relleno de ceros.
+- **Bienes:** ficha completa (`GET /bienes/:numero`, acepta el número con o sin ceros), búsqueda manual (`GET /bienes?q=`, por número, número anterior, descripción, catálogo o ubicación) e historial (`GET /bienes/:numero/historial`, tomado de los registros de los triggers). En la app: ficha con secciones plegables e historial en línea de tiempo, búsqueda con espera al escribir, y escáner con resumen del bien, vibración, linterna, recuadro guía y descarte de lecturas repetidas durante 2 segundos.
+- **Lote por ubicación:** se elige una ubicación (`GET /ubicaciones`), se escanea en ráfaga contra lo que el catálogo ubica ahí (`GET /bienes?ubicacion=`) y al terminar se ve cuántos se encontraron, cuáles faltan, cuáles figuran en otra ubicación y cuáles no están en el catálogo. Lo esperado se compara en el teléfono (sin red); solo lo desconocido se consulta al servidor. El lote en curso se guarda en el teléfono y se puede continuar tras un bloqueo o reinicio. El resumen se comparte como texto; todavía no se envía al servidor.
+- **Auditoría:** cada alta de cuenta, aprobación, rechazo, suspensión, reactivación, baja y cambio de rol, y el inicio de cada sesión, queda en `evento_auditoria`. El administrador consulta el registro en `GET /admin/auditoria` y cada usuario su actividad en `GET /me/actividad`. La app tiene la pantalla "Actividad" para administradores, con filtros por cuentas, sesiones y consultas. Los triggers registran además todo cambio en `usuario`, `bien`, `codigo_bien` y `relevamiento` (`cambio_fila`).
+- **Pruebas:** unitarias y e2e del backend y de `shared`, correctas. La app se verificó en un celular con Expo Go.
 
-## 2b. Base de datos en Supabase (22/10/2026)
+## 4. Decisiones pendientes (sección 7.1 del plan)
 
-- La base de desarrollo pasó de Docker a Supabase (proyecto `Lector-CodigoBarra`, us-west-2), porque la PC de Patrimonio tiene la virtualización desactivada en el BIOS.
-- `DATABASE_URL` en `backend/.env` usa la cadena Session pooler. Migraciones: `cd backend && npx prisma migrate deploy`.
-- Migración `habilita_rls`: activa RLS sin políticas en todas las tablas (bloquea la API pública de Supabase; el backend usa `postgres` y no se ve afectado).
-- Verificado con un bien de prueba (ya borrado): escaneo por código, por inventario y código inexistente.
-- Hallazgo: un escaneo EAN13 `0000000333013` no encuentra el inventario `00333013`, porque `candidatosInventario` solo prueba el valor completo y sin ceros. Depende de la decisión pendiente sobre relleno de ceros.
+Ninguna está resuelta. Las preguntas concretas están en [`consultas-unsa.md`](consultas-unsa.md).
 
-## 3. Puesta en marcha en la otra computadora (con Docker; en Supabase basta el paso 2 con la cadena de conexión)
+| N.º | Decisión | Con quién | Bloquea |
+|---|---|---|---|
+| 1 | Dónde se hospeda el backend y la base (servidor UNSa, Supabase u otro) y si habrá HTTPS con dominio institucional | Centro de Cómputos | Integración SIU, disponibilidad |
+| 2 | Habilitar un usuario de la API REST de Diaguita y confirmar versión y endpoints de bienes | Centro de Cómputos o referente de SIU | Opción (a) |
+| 3 | Plan B: vistas de solo lectura o exportación programada | Centro de Cómputos y Patrimonio | Frescura de datos |
+| 4 | Protocolo de identidad institucional (Araí, LDAP o AD, CAS) y si se permite federar | Centro de Cómputos | Login institucional futuro |
+| 5 | Modelo de alta de cuentas (invitación) y quiénes son administradores | Dirección de Patrimonio | Fase 1 |
+| 6 | SMTP institucional para invitaciones y recuperación | Centro de Cómputos | Recuperación por correo |
+| 7 | Simbologías y formato de las etiquetas | Dirección de Patrimonio | Configuración de la cámara |
+| 8 | Retención de la auditoría y normativa aplicable | Patrimonio y área legal | Política de retención |
+| 9 | Si se exporta en el formato del Colector de Datos de Diaguita | Dirección de Patrimonio | Exportaciones |
+| 10 | Licencia del código y permiso para mostrar el proyecto en el portfolio (sin datos reales) | Patrimonio y cátedra o tutor | Portfolio |
 
-### Requisitos
+## 5. Diferencias con el plan complementario (v2)
 
-- Node.js 24 (mínimo 24.15; las dependencias de Nest no son compatibles con 22.12).
-- Docker Desktop con el motor en ejecución.
-- Git.
+[`plan-de-mejoras-y-decisiones.md`](plan-de-mejoras-y-decisiones.md) parte del plan vigente y agrega decisiones del autor. Donde difieren, manda el plan vigente, salvo que el autor decida otra cosa.
 
-Si se usa otra versión de Node en otros proyectos, instalar `nvm-windows` y alternar con `nvm use`.
+| Tema | Plan vigente | Complemento v2 |
+|---|---|---|
+| Alta de cuentas | Solo por invitación del administrador | A, B o ambas; recomienda autorregistro con aprobación como vía normal |
+| Proveedor de identidad | Autenticación propia ahora; Supabase solo como hosting de PostgreSQL | Depende del hosting; con Supabase como proveedor si no hay servidor de la UNSa |
+| Estados de cuenta | `invitada`, `activa`, `suspendida`, `baja` | Suma `pendiente` y `rechazada` |
+| Recuperar contraseña | Código de un solo uso entregado por el administrador | Depende de si hay SMTP |
+| Alta de bienes | Alta y edición con historial (fase 4) | Hallazgos e informes; SIU nunca se modifica y la app no edita el catálogo |
+| App Colector | La analiza y sugiere exportar en su formato | Queda fuera del alcance |
+| SIU | Adaptador de scraping como último recurso, moviendo el código existente | Opción API elegida; scraping sin desarrollo activo |
 
-### Pasos
+## 6. Riesgos que hoy están abiertos
 
-1. Clonar e instalar:
-   ```bash
-   git clone https://github.com/LautaCastillo/Lector-Codigo.git
-   cd Lector-Codigo
-   npm install
-   ```
-2. Crear el archivo de entorno del backend a partir del ejemplo:
-   ```bash
-   cp .env.example backend/.env
-   ```
-3. Levantar la base de datos:
-   ```bash
-   docker compose up -d
-   ```
-   Si el puerto 5432 está ocupado por otro PostgreSQL, crear un archivo `.env` en la raíz con `DB_PORT=5433` y cambiar `localhost:5432` por `localhost:5433` en `DATABASE_URL` de `backend/.env`.
-4. Compilar `shared`, generar el cliente de Prisma y aplicar las migraciones:
-   ```bash
-   npm run build -w shared
-   npm run prisma:generate -w backend
-   npm run prisma:migrate -w backend
-   ```
-   Con la base nueva aplica la migración `init` ya versionada. No se verificó `prisma migrate deploy` desde la raíz.
-5. Iniciar el backend:
-   ```bash
-   npm run start:dev -w backend
-   ```
-   El arranque puede demorar unos segundos. Verificar en `http://localhost:3000/health`.
-6. Ejecutar las pruebas:
-   ```bash
-   npm test
-   npm run test:e2e -w backend
-   ```
+- **Datos reales fuera de la UNSa:** el catálogo de prueba vive en Supabase. No cargar datos reales hasta resolver la decisión 1.
+- **Pausa del proyecto gratuito de Supabase** tras una semana de inactividad, sobre todo en el receso de verano.
+- **Cuenta `consulta.patrimonio` de SIU:** sus credenciales se expusieron en un chat y siguen sin rotar.
+- **Cuenta de prueba de administrador:** contraseña débil y conocida. Cambiarla o eliminarla antes de cargar datos reales.
+- **Cuenta `relevador-app`:** creada por la autenticación provisoria anterior; conviene darla de baja desde la pantalla de Cuentas.
+- **Autorregistro público abierto:** hasta cambiar a invitaciones, cualquiera con la APK puede pedir una cuenta (queda pendiente y no accede a datos).
 
-### Advertencias
+## 7. Próximos pasos
 
-- Los archivos `.env` no se versionan y deben recrearse en cada computadora.
-- La base de datos local no se sincroniza entre computadoras: cada una tiene su propio volumen de Docker.
-- Las credenciales de SIU (`SIU_USUARIO`, `SIU_CLAVE`) deben cargarse solo en el `.env` local del backend. No subirlas al repositorio ni compartirlas en chats.
-- El backend no arranca sin `SUPABASE_URL`. `AUTH_PROVISORIA=true` habilita la identidad por cabecera `x-relevador` (acepta cualquier valor): usarlo solo en desarrollo o pruebas; con `NODE_ENV=production` se rechaza.
-
-## 4. Pendientes
-
-### Seguridad
-
-- Rotar la cuenta `consulta.patrimonio` de SIU Diaguita, cuyas credenciales se expusieron en un chat.
-
-### Decisiones que bloquean el desarrollo
-
-- Simbologías que usa realmente Patrimonio además de Code 39, y si el contenido del código coincide con el número de inventario (relleno de ceros en EAN/ITF).
-- Método de autenticación de la UNSa (LDAP/Active Directory, SSO, CAS, OAuth u otro).
-- Código o captura HAR de las consultas a SIU Diaguita, para cubrir más filtros.
-- Significado del campo "Cantidad de bienes" en SIU.
-- Listas cerradas de estados del bien y ubicaciones físicas.
-- Imágenes: cantidad por bien, tamaño máximo y almacenamiento.
-- Formato y volumen de la carga inicial de bienes.
-- Quién cubre el costo único de publicación en Google Play.
-
-## 5. Próximos pasos sugeridos
-
-1. Cargar bienes de prueba y verificar el flujo `POST /bienes/escaneo` y `GET /bienes/:numeroInventario`, incluyendo un código inexistente.
-2. Confirmar que el CI de GitHub Actions se ejecuta correctamente.
-3. Crear la aplicación Expo (`app/`) con la pantalla de escaneo.
-4. Implementar la sincronización y el modelo de relevamientos offline.
-5. Implementar el módulo de SIU Diaguita con pruebas sobre fixtures HTML.
-
-## 6. Convenciones
-
-- Commits en español, en imperativo y breves (por ejemplo: `Agrega pantalla de escaneo`).
-- Nunca subir credenciales; usar variables de entorno y `.env.example` sin valores reales.
-- Detalle completo de decisiones: `CLAUDE.md`, `README.md` y `docs/arquitectura.md`.
-
-## 7. App móvil (Expo SDK 57, `app/`)
-
-- Fijada en SDK 57 porque es el que soporta el Expo Go instalado en el celular. Creada la app con Expo Router (`app/src/app/`) y la pantalla de escaneo (`index.tsx`): lee códigos con `expo-camera`, usa las simbologías de `GET /configuracion/simbologias` (con respaldo local) y consulta `POST /bienes/escaneo`.
-- Verificado: chequeo de tipos y empaquetado Android (`npx expo export`). No probada en un dispositivo.
-- Para probar: copiar `app/.env.example` a `app/.env` con la IP de la PC, iniciar el backend (escuchando en la red) y correr `npm run start -w app`; abrir con Expo Go.
-
-## 8. Sesión y cuentas (22/10/2026)
-
-- Autenticación con Supabase Auth (correo y contraseña). La app inicia sesión con `@supabase/supabase-js`; el backend valida el token con las claves públicas del proyecto (`SUPABASE_URL` en `backend/.env`). Sin `SUPABASE_URL` el backend no arranca, salvo `AUTH_PROVISORIA=true` (cabecera `x-relevador`, solo desarrollo y pruebas).
-- Las cuentas nuevas nacen inactivas (`usuario.activo = false`) y un administrador debe habilitarlas. `GET /me` informa el estado a la app.
-- Para aprobar una cuenta: poner `activo = true` (y `rol` si corresponde) en la tabla `usuario`. Todavía no hay pantalla de administración.
-- Cuenta de prueba: usuario `adminlauta` (administrador). Es provisoria: cambiar la contraseña o eliminarla antes de cargar datos reales.
-- Provisorio: la app acepta un nombre de usuario sin arroba y le agrega `@patrimonio.local`. Pendiente: login real con correo o nombre de usuario resuelto en el backend, y recuperación de contraseña por correo.
-- La sesión se guarda en AsyncStorage (sin cifrar). Evaluar `expo-secure-store` antes de producción.
-- Pantallas: login, registro, cuenta pendiente, inicio (con funciones próximas deshabilitadas), escanear y mi cuenta.
-
-## 9. Interfaz (22/10/2026)
-
-- Modo claro, oscuro o automático (Ajustes), con la preferencia guardada en el dispositivo.
-- Menú lateral con inicio, escanear, mi perfil, ajustes y cerrar sesión: deslizable en el celular y fijo a la izquierda desde 900 px de ancho. Las tarjetas del inicio y las pantallas se adaptan al ancho disponible.
-- Los campos de contraseña tienen botón para mostrarla u ocultarla.
-- Mi perfil: edita el nombre (`PATCH /me`) y cambia la contraseña (Supabase Auth). Cuenta y rol solo los cambia un administrador.
-- Probado: tipos, pruebas del backend y empaquetado Android. Sin probar en dispositivo.
-
-## 10. Catálogo de bienes (22/10/2026)
-
-- Importador del listado "Bienes de uso" de SIU Diaguita (Exportar Excel; viene con extensión `.xls` pero es `.xlsx`): `cd backend && npm run importar -- ruta/al/listado.xls`. Es idempotente: crea los nuevos y actualiza los existentes por número de inventario.
-- El número patrimonial de SIU viene como `NUI:00006349`; se guarda `00006349` (8 dígitos). El escaneo prueba el valor leído, sin ceros y completado a 8 dígitos, por lo que resuelve EAN13 con otro relleno.
-- Se cargaron 55 bienes de prueba. Campos nuevos en `bien`: catálogo, motivo de alta, número anterior y expediente.
-- El listado exportado no incluye "responsable de uso" (SIU lo ofrece como columna opcional).
-- Pendiente: descarga automática del catálogo al dispositivo (SQLite) para el uso sin conexión; importación desde la app por un administrador; normalizar áreas, ubicaciones y catálogo en tablas propias.
-
-## 11. Estados de cuenta, aprobación y roles (23/10/2026)
-
-Puntos 3 y 4 de la sección 3.5 de `plan-de-mejoras-y-decisiones.md`.
-
-- **Estados:** `pendiente` (al registrarse), `activa`, `rechazada`, `suspendida` y `baja` (definitiva). Reemplazan al booleano `activo`. Campos nuevos en `usuario`: `estado`, `aprobadoPor`, `aprobadoEn`, `motivoEstado`, `ultimoAccesoEn`. Migración `estados_de_cuenta`: las cuentas activas siguen activas y las inactivas quedan suspendidas.
-- **Transiciones** (`backend/src/usuarios/usuarios.service.ts`): aprobar (desde pendiente o rechazada), rechazar (pendiente), suspender (activa), reactivar (suspendida) y baja. Rechazar, suspender y dar de baja exigen un motivo de 3 a 200 caracteres.
-- **Endpoints de administración** (solo rol administrador): `GET /admin/usuarios?estado=`, `POST /admin/usuarios/:id/{aprobar|rechazar|suspender|reactivar|baja}` y `PATCH /admin/usuarios/:id/rol` (con motivo). Un administrador no puede cambiar su propia cuenta ni su rol, lo que impide quedarse sin administradores activos.
-- **Autorización por rol con denegación por defecto** (`RolesGuard`): cada endpoint debe declarar `@Publico()`, `@PermitirInactivo()` (solo `GET /me`) o `@Roles(...)`. Un endpoint nuevo sin decorador responde 403. Una cuenta que no está activa recibe 403 salvo en `GET /me`.
-- **App:** pantalla "Cuentas" (solo administradores, desde el menú) para aprobar, rechazar, suspender y reactivar; la pantalla de cuenta no activa muestra el mensaje de cada estado.
-- **Primer administrador:** nadie puede aprobarlo. Se designa en la base: `UPDATE usuario SET estado = 'activa', rol = 'administrador' WHERE cuenta = '<correo>';`. Registrar el procedimiento en el runbook.
-- **Pendiente:** la tabla `evento_auditoria` (sección 4 del plan). Hoy el motivo del último cambio queda en `motivoEstado` y no hay historial de cambios anteriores. Tampoco se revocan sesiones al suspender: el efecto llega cuando vence el token (hasta 1 hora con la configuración actual de Supabase).
-- **Dato suelto:** existe una cuenta `relevador-app` creada por la autenticación provisoria anterior; conviene darla de baja.
-
-## 12. SecureStore y bloqueo de la app (23/10/2026)
-
-Punto 5 de la sección 3.5 del plan de mejoras.
-
-- **Sesión en almacén seguro:** la sesión de Supabase (access y refresh token) ya no se guarda en AsyncStorage sino en `expo-secure-store` (`app/src/lib/almacen-seguro.ts`), partida en trozos de 1000 caracteres por el límite de tamaño de cada valor. Las sesiones guardadas por la versión anterior se migran solas en el primer arranque. Accesible tras el primer desbloqueo del equipo y sin migrar a otro dispositivo.
-- **Bloqueo con PIN** (`app/src/lib/bloqueo.tsx`): al primer ingreso de cada sesión se crea un PIN de 6 dígitos (se rechazan repetidos y secuencias) y, si el teléfono lo permite, se puede activar huella o rostro. La app se bloquea en cada arranque y tras 5 minutos en segundo plano. El PIN se guarda con sal y SHA-256 en el almacén seguro. Con 5 intentos fallidos se cierra la sesión. Al cerrar sesión se borra el bloqueo. La biometría se usa sin `requireAuthentication` sobre el token, para no impedir el trabajo sin conexión, como indica el plan.
-- **Respaldo de Android:** el plugin de `expo-secure-store` quedó con `configureAndroidBackup: true` en `app.json`. Falta excluir la base SQLite cuando exista.
-- **Limitaciones:** el PIN de 6 dígitos protege contra el uso casual del teléfono, no contra alguien que extraiga el hash del almacén. No se verificó en un teléfono ni en una development build; la huella y el rostro y el efecto de `configureAndroidBackup` quedan sin probar. En Expo Go el rostro (Face ID) no está disponible en iOS.
-- **Pendiente:** cambiar o desactivar el PIN desde Ajustes, y recuperar el acceso sin cerrar sesión si se olvida.
+1. Rumbo de la fase 1: se mantiene Supabase Auth por ahora (decisión del 23/10/2026). Reabrir la migración a autenticación propia con invitaciones cuando se conozca el hosting.
+2. Del plan, fase 3 (UX de campo): quedan el indicador de conexión y la pantalla de pendientes, que dependen del núcleo sin conexión. Al llegar la sincronización, los lotes deben enviarse al servidor como relevamientos (hoy el resumen solo se comparte).
+3. ADR 0001 a 0006 en estado propuesto (criterio de salida de la fase 0), incluido el del rol de base de datos, que también define cómo se retiran UPDATE y DELETE al rol de la aplicación.
+4. Actualizar `CLAUDE.md` para que coincida con el plan.
+5. Pedir el aval a Patrimonio y enviar las consultas de [`consultas-unsa.md`](consultas-unsa.md).
+6. Núcleo sin conexión (fase 2): al llegar, sumar a la auditoría los relojes del dispositivo, la secuencia y las operaciones en cuarentena.
