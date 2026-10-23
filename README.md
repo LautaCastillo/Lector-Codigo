@@ -100,6 +100,7 @@ Etapa de implementación. Última actualización: 22/10/2026.
 | 22/10/2026 | Autenticación con Supabase Auth. El backend valida el token (`SUPABASE_URL`); sin esa variable el backend no arranca (salvo `AUTH_PROVISORIA=true`, solo para desarrollo y pruebas). |
 | 22/10/2026 | Interfaz con la paleta de la UNSa: login, registro, inicio con tarjetas, menú lateral, perfil editable, ajustes, modo oscuro, botón para ver la contraseña y diseño adaptable. |
 | 23/10/2026 | La sesión pasa a `expo-secure-store` y la app se bloquea con PIN (y huella o rostro opcionales) al abrirla y tras 5 minutos en segundo plano (punto 5 del plan de mejoras). |
+| 23/10/2026 | Relevamientos registrados en el servidor: envío idempotente del lote, "Mis relevamientos" y detalle de cada relevamiento. |
 | 23/10/2026 | Escaneo por lotes por ubicación: escaneo en ráfaga con detección de repetidos, faltantes y bienes de otra ubicación, lote guardado en el teléfono y resumen para compartir. |
 | 23/10/2026 | Ficha del bien con historial, búsqueda manual y escáner con resumen, vibración, linterna y descarte de lecturas repetidas. |
 | 23/10/2026 | Auditoría append-only: `evento_auditoria` y `cambio_fila` con triggers, bloqueo de modificaciones, eventos de cuentas y sesiones, endpoints `GET /admin/auditoria` y `GET /me/actividad`, y pantalla "Actividad" para administradores. |

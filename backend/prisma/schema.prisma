@@ -40,6 +40,12 @@ enum Rol {
   relevador
 }
 
+enum ResultadoRelevamiento {
+  encontrado
+  no_encontrado
+  sin_verificar
+}
+
 /// pendiente -> activa | rechazada; activa <-> suspendida; baja es lógica y definitiva.
 enum EstadoCuenta {
   pendiente
@@ -120,22 +126,29 @@ model CodigoBien {
 }
 
 model Relevamiento {
-  id                    String      @id @default(uuid())
+  id                    String                @id @default(uuid())
   /// UUID generado en el dispositivo; vuelve idempotente la subida.
-  idCliente             String      @unique
+  idCliente             String                @unique
   bienId                String?
-  bien                  Bien?       @relation(fields: [bienId], references: [id])
+  bien                  Bien?                 @relation(fields: [bienId], references: [id])
   usuarioId             String
-  usuario               Usuario     @relation(fields: [usuarioId], references: [id])
+  usuario               Usuario               @relation(fields: [usuarioId], references: [id])
   simbologia            Simbologia?
   valorLeido            String?
   estadoDetectado       String?
   observaciones         String?
+  /// Qué se encontró al leer el código. `sin_verificar`: se leyó sin conexión y no se pudo comprobar.
+  resultado             ResultadoRelevamiento
+  /// Ubicación física en la que se relevó (la que el relevador eligió al empezar el lote).
+  ubicacionObservada    String?
+  /// UUID del lote del que forma parte, generado en el dispositivo.
+  loteId                String?
   relevadoEnDispositivo DateTime
-  sincronizadoEn        DateTime    @default(now())
+  sincronizadoEn        DateTime              @default(now())
 
   @@index([bienId])
-  @@index([usuarioId])
+  @@index([usuarioId, relevadoEnDispositivo])
+  @@index([loteId])
   @@map("relevamiento")
 }
 

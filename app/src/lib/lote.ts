@@ -1,4 +1,4 @@
-import { candidatosInventario, normalizarCodigo, type BienDto, type Simbologia } from '@patrimonio/shared';
+import { candidatosInventario, normalizarCodigo, type BienDto, type RelevamientoDto, type Simbologia } from '@patrimonio/shared';
 
 /**
  * Escaneo por lotes: se elige una ubicación física y se escanea en ráfaga. Todo esto es lógica pura
@@ -8,6 +8,8 @@ import { candidatosInventario, normalizarCodigo, type BienDto, type Simbologia }
 export type EstadoItem = 'encontrado' | 'no_encontrado' | 'sin_verificar';
 
 export interface ItemLote {
+  /** UUID generado acá: vuelve idempotente el envío al servidor (reenviar no duplica). */
+  idCliente: string;
   /** Identifica el ítem para detectar repetidos: el bien si se encontró, o la lectura si no. */
   clave: string;
   leido: string;
@@ -22,20 +24,26 @@ export interface ItemLote {
 }
 
 export interface Lote {
+  /** UUID del lote: agrupa los relevamientos en el servidor. */
+  id: string;
   ubicacion: string;
   iniciadoEn: string;
   /** Bienes que el catálogo ubica en `ubicacion`: contra esto se calculan los faltantes. */
   esperados: BienDto[];
   items: ItemLote[];
+  /** `idCliente` de los ítems que el servidor ya confirmó. */
+  enviados: string[];
 }
 
 export type Resolucion = { estado: 'encontrado'; bien: BienDto } | { estado: 'no_encontrado' } | { estado: 'sin_verificar' };
 
-export const nuevoLote = (ubicacion: string, esperados: BienDto[], ahora = new Date()): Lote => ({
+export const nuevoLote = (ubicacion: string, esperados: BienDto[], id: string, ahora = new Date()): Lote => ({
+  id,
   ubicacion,
   iniciadoEn: ahora.toISOString(),
   esperados,
   items: [],
+  enviados: [],
 });
 
 /** Busca una lectura entre los bienes esperados, sin red. Acepta el número con otro relleno de ceros. */
@@ -56,6 +64,7 @@ export function agregarLectura(
   lote: Lote,
   lectura: { simbologia: Simbologia; valor: string },
   resolucion: Resolucion,
+  nuevoId: () => string,
   ahora = new Date(),
 ): { lote: Lote; repetido: boolean; item: ItemLote } {
   const clave = claveDe(lectura.simbologia, lectura.valor, resolucion);
@@ -66,6 +75,7 @@ export function agregarLectura(
   }
   const enEsperados = resolucion.estado === 'encontrado' && lote.esperados.some((b) => b.numeroInventario === resolucion.bien.numeroInventario);
   const item: ItemLote = {
+    idCliente: nuevoId(),
     clave,
     leido: lectura.valor,
     simbologia: lectura.simbologia,
@@ -101,6 +111,42 @@ export function resolverPendiente(lote: Lote, clave: string, resolucion: Resoluc
   };
   return { ...lote, items: lote.items.map((i) => (i.clave === clave ? resuelto : i)) };
 }
+
+/** Completa lo que les falta a los lotes guardados por una versión anterior de la app. */
+export function asegurarIds(lote: Lote, nuevoId: () => string): Lote {
+  return {
+    ...lote,
+    id: lote.id ?? nuevoId(),
+    enviados: lote.enviados ?? [],
+    items: lote.items.map((i) => (i.idCliente ? i : { ...i, idCliente: nuevoId() })),
+  };
+}
+
+/**
+ * Relevamientos listos para subir: todo lo que el servidor todavía no confirmó, salvo lo que quedó sin
+ * verificar (se resuelve antes de enviar, porque el servidor no modifica un relevamiento ya registrado).
+ */
+export function relevamientosPorEnviar(lote: Lote): RelevamientoDto[] {
+  const hechos = new Set(lote.enviados);
+  return lote.items
+    .filter((i) => i.estado !== 'sin_verificar' && !hechos.has(i.idCliente))
+    .map((i) => ({
+      idCliente: i.idCliente,
+      loteId: lote.id,
+      resultado: i.estado === 'encontrado' ? 'encontrado' : 'no_encontrado',
+      ...(i.bien ? { numeroInventario: i.bien.numeroInventario } : {}),
+      simbologia: i.simbologia,
+      valorLeido: i.leido,
+      ubicacionObservada: lote.ubicacion,
+      relevadoEnDispositivo: i.hora,
+    }));
+}
+
+/** Marca como confirmados por el servidor los relevamientos indicados. */
+export const marcarEnviados = (lote: Lote, idsClientes: string[]): Lote => ({
+  ...lote,
+  enviados: [...new Set([...lote.enviados, ...idsClientes])],
+});
 
 export interface ResumenLote {
   esperados: number;

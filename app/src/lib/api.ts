@@ -2,6 +2,9 @@ import {
   SIMBOLOGIAS_POR_DEFECTO,
   type BienDetalleDto,
   type BienDto,
+  type RelevamientoDto,
+  type RelevamientoRegistradoDto,
+  type ResultadoSubidaDto,
   type CambioBienDto,
   type CuentaDto,
   type UbicacionDto,
@@ -69,6 +72,25 @@ export const cambiarEstadoCuenta = (id: string, accion: AccionCuenta, motivo?: s
     method: 'POST',
     body: JSON.stringify(motivo ? { motivo } : {}),
   });
+
+/** El servidor admite hasta 500 por subida: se manda en tandas y se suman los resultados. */
+export async function subirRelevamientos(relevamientos: RelevamientoDto[]): Promise<ResultadoSubidaDto> {
+  const total: ResultadoSubidaDto = { registrados: 0, duplicados: 0, rechazados: [] };
+  for (let i = 0; i < relevamientos.length; i += 400) {
+    const r = await pedir<ResultadoSubidaDto>('/relevamientos', {
+      method: 'POST',
+      body: JSON.stringify({ relevamientos: relevamientos.slice(i, i + 400) }),
+    });
+    total.registrados += r.registrados;
+    total.duplicados += r.duplicados;
+    total.rechazados.push(...r.rechazados);
+  }
+  return total;
+}
+
+export const misRelevamientos = (limite = 300) => pedir<RelevamientoRegistradoDto[]>(`/me/relevamientos?limite=${limite}`);
+
+export const obtenerRelevamiento = (id: string) => pedir<RelevamientoRegistradoDto>(`/relevamientos/${encodeURIComponent(id)}`);
 
 export const listarUbicaciones = () => pedir<UbicacionDto[]>('/ubicaciones');
 

@@ -62,6 +62,18 @@ export function tonoEstado(estado: string | null): TonoEstado {
   return 'neutro';
 }
 
+export const ETIQUETA_RESULTADO: Record<string, string> = {
+  encontrado: 'Encontrado',
+  no_encontrado: 'No está en el catálogo',
+  sin_verificar: 'Sin verificar',
+};
+
+export const EXPLICACION_RESULTADO: Record<string, string> = {
+  encontrado: 'El código leído corresponde a un bien del catálogo.',
+  no_encontrado: 'El código leído no corresponde a ningún bien del catálogo.',
+  sin_verificar: 'Se leyó sin conexión y no se pudo comprobar si está en el catálogo.',
+};
+
 export const ETIQUETA_CODIGO: Record<string, string> = {
   sin_codigo: 'Sin código',
   codigo_danado: 'Código dañado',

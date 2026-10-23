@@ -20,6 +20,7 @@ export const TIPOS_EVENTO_AUDITORIA = [
   'ESTADO_CUENTA_CAMBIADO',
   'ROL_CAMBIADO',
   'SESION_INICIADA',
+  'RELEVAMIENTO_REGISTRADO',
   'AUDITORIA_CONSULTADA',
 ] as const;
 export type TipoEventoAuditoria = (typeof TIPOS_EVENTO_AUDITORIA)[number];
@@ -111,14 +112,49 @@ export interface ResultadoEscaneoDto {
   bien?: BienDto;
 }
 
+export const RESULTADOS_RELEVAMIENTO = ['encontrado', 'no_encontrado', 'sin_verificar'] as const;
+/** `sin_verificar`: se leyó sin conexión y no se pudo comprobar si el bien está en el catálogo. */
+export type ResultadoRelevamiento = (typeof RESULTADOS_RELEVAMIENTO)[number];
+
 /** Contrato de subida de relevamientos; idCliente (UUID) garantiza idempotencia. */
 export interface RelevamientoDto {
   idCliente: string;
+  /** UUID del lote del que forma parte, si se relevó en ráfaga. */
+  loteId?: string;
+  /** Obligatorio cuando el resultado es `encontrado`. */
   numeroInventario?: string;
   simbologia?: Simbologia;
   valorLeido?: string;
+  resultado: ResultadoRelevamiento;
+  ubicacionObservada?: string;
   observaciones?: string;
   estadoDetectado?: string;
   /** ISO 8601, reloj del dispositivo. */
   relevadoEnDispositivo: string;
+}
+
+/** Respuesta a una subida: lo ya registrado antes se cuenta como duplicado y no se vuelve a guardar. */
+export interface ResultadoSubidaDto {
+  registrados: number;
+  duplicados: number;
+  rechazados: { idCliente: string; motivo: string }[];
+}
+
+/** Un relevamiento ya registrado en el servidor. */
+export interface RelevamientoRegistradoDto {
+  id: string;
+  idCliente: string;
+  loteId: string | null;
+  resultado: ResultadoRelevamiento;
+  simbologia: string | null;
+  valorLeido: string | null;
+  ubicacionObservada: string | null;
+  observaciones: string | null;
+  estadoDetectado: string | null;
+  /** Hora del reloj del dispositivo y hora en que llegó al servidor (ISO 8601). */
+  relevadoEnDispositivo: string;
+  sincronizadoEn: string;
+  /** Nombre o cuenta de quien relevó. */
+  relevador: string | null;
+  bien: BienDto | null;
 }

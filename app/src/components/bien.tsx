@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { BienDto } from '@patrimonio/shared';
 import { useState, type ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { ETIQUETA_CODIGO, tonoEstado } from '../lib/formato';
+import { ETIQUETA_CODIGO, ETIQUETA_RESULTADO, tonoEstado } from '../lib/formato';
 import { radio, useEstilos, useTema, type Paleta } from '../lib/tema';
 
 /** Estado del bien (y del código, si no se puede leer) como etiquetas con texto y color. */
@@ -23,6 +23,18 @@ export function Etiquetas({ bien }: { bien: Pick<BienDto, 'estadoBien' | 'estado
           <Text style={e.etiquetaTexto}>{ETIQUETA_CODIGO[bien.estadoCodigo] ?? bien.estadoCodigo}</Text>
         </View>
       )}
+    </View>
+  );
+}
+
+/** Resultado de un relevamiento como etiqueta con texto y color. */
+export function ChipResultado({ resultado }: { resultado: string }) {
+  const e = useEstilos(fabrica);
+  const { c } = useTema();
+  const fondo = resultado === 'encontrado' ? c.ok : resultado === 'no_encontrado' ? c.error : c.suave;
+  return (
+    <View style={[e.etiqueta, { backgroundColor: fondo, alignSelf: 'flex-start' }]}>
+      <Text style={e.etiquetaTexto}>{ETIQUETA_RESULTADO[resultado] ?? resultado}</Text>
     </View>
   );
 }

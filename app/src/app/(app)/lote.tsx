@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { esSimbologia, type Simbologia, type UbicacionDto } from '@patrimonio/shared';
+import * as Crypto from 'expo-crypto';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
@@ -7,13 +8,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { Seccion } from '../../components/bien';
 import { Boton } from '../../components/ui';
-import { bienesDeUbicacion, enviarEscaneo, listarUbicaciones, simbologiasHabilitadas } from '../../lib/api';
+import { bienesDeUbicacion, enviarEscaneo, listarUbicaciones, simbologiasHabilitadas, subirRelevamientos } from '../../lib/api';
 import { fechaHora } from '../../lib/formato';
 import {
   agregarLectura,
+  asegurarIds,
   buscarEnEsperados,
+  marcarEnviados,
   nuevoLote,
   quitarItem,
+  relevamientosPorEnviar,
   resolverPendiente,
   resumir,
   textoResumen,
@@ -45,7 +49,7 @@ export default function LotePorUbicacion() {
   // Al entrar, si quedó un lote a medias se ofrece continuarlo.
   useEffect(() => {
     cargarLote().then((l) => {
-      setGuardado(l);
+      setGuardado(l ? asegurarIds(l, Crypto.randomUUID) : null);
       setFase('elegir');
     });
   }, []);
@@ -141,7 +145,7 @@ function ElegirUbicacion({
   const empezar = async (nombre: string) => {
     setIniciando(nombre);
     try {
-      alEmpezar(nuevoLote(nombre, await bienesDeUbicacion(nombre)));
+      alEmpezar(nuevoLote(nombre, await bienesDeUbicacion(nombre), Crypto.randomUUID()));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo iniciar el lote.');
       setIniciando(null);
@@ -282,7 +286,7 @@ function Escanear({ lote, alCambiar, alTerminar }: { lote: Lote; alCambiar: (l: 
             resolucion = { estado: 'sin_verificar' };
           }
         }
-        const { lote: nuevo, repetido, item } = agregarLectura(loteRef.current, lectura, resolucion);
+        const { lote: nuevo, repetido, item } = agregarLectura(loteRef.current, lectura, resolucion, Crypto.randomUUID);
         loteRef.current = nuevo;
         alCambiar(nuevo);
         if (repetido) {
@@ -432,6 +436,9 @@ function Resumen({ lote, alCambiar, alSeguir, alCerrar }: { lote: Lote; alCambia
   const r = useMemo(() => resumir(lote), [lote]);
   const [verificando, setVerificando] = useState(false);
   const [mensaje, setMensaje] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const [resultadoEnvio, setResultadoEnvio] = useState<{ ok: boolean; texto: string } | null>(null);
+  const porEnviar = useMemo(() => relevamientosPorEnviar(lote), [lote]);
 
   const compartir = () => void Share.share({ message: textoResumen(lote, fechaHora(new Date().toISOString())), title: `Lote en ${lote.ubicacion}` });
 
@@ -453,8 +460,28 @@ function Resumen({ lote, alCambiar, alSeguir, alCerrar }: { lote: Lote; alCambia
     setVerificando(false);
   };
 
+  /** Registra en el servidor lo que todavía no confirmó. Repetir el envío no duplica nada. */
+  const enviar = async () => {
+    setEnviando(true);
+    setResultadoEnvio(null);
+    try {
+      const lista = relevamientosPorEnviar(lote);
+      const res = await subirRelevamientos(lista);
+      const rechazados = new Set(res.rechazados.map((x) => x.idCliente));
+      alCambiar(marcarEnviados(lote, lista.map((x) => x.idCliente).filter((id) => !rechazados.has(id))));
+      setResultadoEnvio(
+        res.rechazados.length
+          ? { ok: false, texto: `${res.registrados + res.duplicados} registrados. ${res.rechazados.length} rechazados: ${res.rechazados[0]?.motivo}` }
+          : { ok: true, texto: `${res.registrados + res.duplicados} relevamientos registrados en el servidor.` },
+      );
+    } catch (err) {
+      setResultadoEnvio({ ok: false, texto: err instanceof Error ? err.message : 'No se pudo enviar. Revisá la conexión y reintentá.' });
+    }
+    setEnviando(false);
+  };
+
   const cerrar = () =>
-    Alert.alert('Cerrar el lote', 'Se borran los escaneos de este lote del teléfono. Compartí el resumen antes si lo necesitás.', [
+    Alert.alert('Cerrar el lote', porEnviar.length ? `Hay ${porEnviar.length} relevamientos sin enviar al servidor: se perderían. Enviá el lote antes de cerrarlo.` : 'Se borran los escaneos de este lote del teléfono. Lo ya enviado queda en Mis relevamientos.', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Cerrar lote', style: 'destructive', onPress: alCerrar },
     ]);
@@ -481,6 +508,20 @@ function Resumen({ lote, alCambiar, alSeguir, alCerrar }: { lote: Lote; alCambia
             {mensaje && <Text style={e.suave}>{mensaje}</Text>}
           </View>
         )}
+
+        <View style={e.envio}>
+          <Text style={e.enCursoTitulo}>Registro en el servidor</Text>
+          {porEnviar.length > 0 ? (
+            <Text style={e.suave}>
+              {porEnviar.length} relevamiento{porEnviar.length === 1 ? '' : 's'} sin enviar. Al enviarlos quedan en "Mis relevamientos" y Patrimonio puede consultarlos. No modifica SIU.
+            </Text>
+          ) : (
+            <Text style={e.suave}>{lote.enviados.length > 0 ? 'Todo lo escaneado ya está registrado en el servidor.' : 'Todavía no hay nada para enviar.'}</Text>
+          )}
+          {r.sinVerificar.length > 0 && <Text style={e.suave}>Los {r.sinVerificar.length} sin verificar no se envían hasta comprobarlos.</Text>}
+          {porEnviar.length > 0 && <Boton texto={`Enviar ${porEnviar.length} al servidor`} cargando={enviando} onPress={enviar} />}
+          {resultadoEnvio && <Text style={resultadoEnvio.ok ? e.exito : e.error}>{resultadoEnvio.texto}</Text>}
+        </View>
 
         <Seccion titulo={`Faltantes (${r.faltantes.length})`} inicialAbierta={r.faltantes.length > 0}>
           {r.faltantes.length === 0 ? (
@@ -517,7 +558,7 @@ function Resumen({ lote, alCambiar, alSeguir, alCerrar }: { lote: Lote; alCambia
           ))}
         </Seccion>
 
-        <Text style={e.suave}>El resumen no se envía al servidor ni modifica SIU. Compartilo con Patrimonio; los relevamientos se registrarán en el servidor cuando esté la sincronización.</Text>
+        <Text style={e.suave}>El resumen de faltantes se calcula en el teléfono: se puede compartir como texto. Lo que se envía al servidor son los relevamientos escaneados.</Text>
 
         <Boton texto="Compartir resumen" onPress={compartir} />
         <Boton texto="Seguir escaneando" variante="secundario" onPress={alSeguir} />
@@ -550,6 +591,8 @@ const fabrica = (c: Paleta) => ({
   fila: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   campo: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 52, paddingHorizontal: 14, borderRadius: radio, borderWidth: 1.5, borderColor: c.borde, backgroundColor: c.superficie },
   entrada: { flex: 1, fontSize: 16, color: c.texto, minHeight: 48 },
+  envio: { backgroundColor: c.superficie, borderRadius: radio, padding: 16, gap: 8, borderWidth: 1, borderColor: c.borde },
+  exito: { fontSize: 15, color: c.ok },
   enCurso: { backgroundColor: c.superficie, borderRadius: radio, padding: 16, gap: 8, borderWidth: 1.5, borderColor: c.accion },
   enCursoTitulo: { fontSize: 16, fontWeight: '800', color: c.titulo },
   listaExterna: { width: '100%' },

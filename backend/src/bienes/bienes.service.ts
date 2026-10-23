@@ -149,6 +149,9 @@ export function diferencias(antes: unknown, despues: unknown): CambioBienDto['ca
     .map((campo) => ({ campo, antes: a[campo] ?? null, despues: d[campo] ?? null }));
 }
 
+/** Resumen de un bien, para reutilizar en otros módulos. */
+export const bienADto = (b: FilaBien): BienDto => aDto(b);
+
 function aDto(b: FilaBien): BienDto {
   return {
     id: b.id,
