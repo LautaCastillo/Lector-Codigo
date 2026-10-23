@@ -1,7 +1,8 @@
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import type { CuentaDto, EstadoCuenta, Rol } from '@patrimonio/shared';
+import type { CuentaDto, EstadoCuenta, Rol, TipoEventoAuditoria } from '@patrimonio/shared';
 import { ROLES } from '@patrimonio/shared';
 import type { UsuarioActual } from '../auth/relevador.guard.js';
+import { AuditoriaService } from '../auditoria/auditoria.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 export type Accion = 'aprobar' | 'rechazar' | 'suspender' | 'reactivar' | 'baja';
@@ -20,6 +21,15 @@ export const TRANSICIONES: Record<Accion, Transicion> = {
   suspender: { desde: ['activa'], hacia: 'suspendida', exigeMotivo: true },
   reactivar: { desde: ['suspendida'], hacia: 'activa', exigeMotivo: false },
   baja: { desde: ['pendiente', 'activa', 'rechazada', 'suspendida'], hacia: 'baja', exigeMotivo: true },
+};
+
+/** Tipo de evento de auditoría de cada acción sobre una cuenta. */
+const TIPO_EVENTO: Record<Accion, TipoEventoAuditoria> = {
+  aprobar: 'CUENTA_APROBADA',
+  rechazar: 'CUENTA_RECHAZADA',
+  suspender: 'ESTADO_CUENTA_CAMBIADO',
+  reactivar: 'ESTADO_CUENTA_CAMBIADO',
+  baja: 'ESTADO_CUENTA_CAMBIADO',
 };
 
 export const esAccion = (valor: string): valor is Accion => valor in TRANSICIONES;
@@ -60,7 +70,10 @@ const aDto = (u: {
 
 @Injectable()
 export class UsuariosService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(AuditoriaService) private readonly auditoria: AuditoriaService,
+  ) {}
 
   async listar(estado?: EstadoCuenta): Promise<CuentaDto[]> {
     const cuentas = await this.prisma.usuario.findMany({
@@ -82,14 +95,34 @@ export class UsuariosService {
     if (!t.desde.includes(cuenta.estado)) {
       throw new ConflictException(`No se puede ${accion} una cuenta en estado ${cuenta.estado}`);
     }
-    const actualizada = await this.prisma.usuario.update({
-      where: { id },
-      data: {
-        estado: t.hacia,
-        motivoEstado: motivo,
-        ...(accion === 'aprobar' ? { aprobadoPor: actor.id, aprobadoEn: new Date() } : {}),
-        ...(rol ? { rol } : {}),
-      },
+    // El cambio y su evento van en la misma transacción: no puede haber uno sin el otro.
+    const actualizada = await this.auditoria.conActor(actor.id, async (tx) => {
+      const nueva = await tx.usuario.update({
+        where: { id },
+        data: {
+          estado: t.hacia,
+          motivoEstado: motivo,
+          ...(accion === 'aprobar' ? { aprobadoPor: actor.id, aprobadoEn: new Date() } : {}),
+          ...(rol ? { rol } : {}),
+        },
+      });
+      await this.auditoria.registrar(
+        {
+          tipo: TIPO_EVENTO[accion],
+          actor,
+          entidadTipo: 'usuario',
+          entidadId: id,
+          motivo,
+          datos: {
+            accion,
+            estadoAnterior: cuenta.estado,
+            estadoNuevo: t.hacia,
+            ...(rol ? { rolAnterior: cuenta.rol, rolNuevo: rol } : {}),
+          },
+        },
+        tx,
+      );
+      return nueva;
     });
     return aDto(actualizada);
   }
@@ -98,10 +131,24 @@ export class UsuariosService {
     const nuevo = this.rolValido(rol);
     if (!nuevo) throw new BadRequestException('Falta el rol');
     const texto = motivoValido(motivo, true);
-    await this.cuentaAjena(actor, id);
-    const actualizada = await this.prisma.usuario.update({
-      where: { id },
-      data: { rol: nuevo, motivoEstado: `Cambio de rol a ${nuevo}: ${texto}` },
+    const cuenta = await this.cuentaAjena(actor, id);
+    const actualizada = await this.auditoria.conActor(actor.id, async (tx) => {
+      const nueva = await tx.usuario.update({
+        where: { id },
+        data: { rol: nuevo, motivoEstado: `Cambio de rol a ${nuevo}: ${texto}` },
+      });
+      await this.auditoria.registrar(
+        {
+          tipo: 'ROL_CAMBIADO',
+          actor,
+          entidadTipo: 'usuario',
+          entidadId: id,
+          motivo: texto,
+          datos: { rolAnterior: cuenta.rol, rolNuevo: nuevo },
+        },
+        tx,
+      );
+      return nueva;
     });
     return aDto(actualizada);
   }

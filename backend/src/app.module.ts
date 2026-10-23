@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { AuditoriaModule } from './auditoria/auditoria.module.js';
 import { RelevadorGuard } from './auth/relevador.guard.js';
 import { RolesGuard } from './auth/roles.guard.js';
 import { BienesModule } from './bienes/bienes.module.js';
@@ -11,7 +12,7 @@ import { UsuariosController } from './usuarios/usuarios.controller.js';
 import { UsuariosService } from './usuarios/usuarios.service.js';
 
 @Module({
-  imports: [ConfigModule, PrismaModule, BienesModule],
+  imports: [ConfigModule, PrismaModule, AuditoriaModule, BienesModule],
   controllers: [HealthController, UsuariosController, AdminUsuariosController],
   // El orden importa: primero se identifica al usuario y después se comprueba su rol.
   providers: [

@@ -1,6 +1,7 @@
 import type { Session } from '@supabase/supabase-js';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { obtenerPerfil, type Perfil } from './api';
+import { borrarLoteGuardado } from './lote-almacen';
 import { supabase } from './supabase';
 
 // Provisorio: permite entrar con un nombre de usuario (sin arroba) completando un dominio interno.
@@ -106,6 +107,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
         return error ? traducir(error.message) : null;
       },
       cerrarSesion: async () => {
+        await borrarLoteGuardado();
         await supabase.auth.signOut();
       },
     }),

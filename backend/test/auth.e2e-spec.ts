@@ -3,39 +3,27 @@ import request from 'supertest';
 import { describe, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { baseFalsa, fila } from './base-falsa.js';
 
-const prismaFalso = {
-  usuario: {
-    upsert: async ({ where }: { where: { cuenta: string } }) => ({
-      id: 'u1',
-      cuenta: where.cuenta,
-      estado: 'activa',
-      rol: 'relevador',
-      nombre: null,
-      ultimoAccesoEn: null,
-    }),
-    update: async () => ({}),
-  },
-  codigoBien: { findUnique: async () => null },
-  bien: { findFirst: async () => null },
-};
+async function crearApp(base: object) {
+  const mod = await Test.createTestingModule({ imports: [AppModule] })
+    .overrideProvider(PrismaService)
+    .useValue(base)
+    .compile();
+  const app = mod.createNestApplication();
+  await app.init();
+  return app;
+}
 
 describe('Autenticación provisoria (e2e)', () => {
   it('health es público, el resto exige x-relevador', async () => {
     process.env.AUTH_PROVISORIA = 'true';
-    const mod = await Test.createTestingModule({ imports: [AppModule] })
-      .overrideProvider(PrismaService)
-      .useValue(prismaFalso)
-      .compile();
-    const app = mod.createNestApplication();
-    await app.init();
+    const base = baseFalsa([fila('juan', 'activa')]);
+    const app = await crearApp(base);
     const http = app.getHttpServer();
     await request(http).get('/health').expect(200);
     await request(http).get('/configuracion/simbologias').expect(401);
-    await request(http)
-      .get('/configuracion/simbologias')
-      .set('x-relevador', 'juan')
-      .expect(200);
+    await request(http).get('/configuracion/simbologias').set('x-relevador', 'juan').expect(200);
     await request(http)
       .post('/bienes/escaneo')
       .set('x-relevador', 'juan')
@@ -63,12 +51,7 @@ describe('Autenticación con Supabase (e2e)', () => {
   it('sin token válido responde 401 y /me exige sesión', async () => {
     process.env.SUPABASE_URL = 'https://ejemplo.supabase.co';
     try {
-      const mod = await Test.createTestingModule({ imports: [AppModule] })
-        .overrideProvider(PrismaService)
-        .useValue(prismaFalso)
-        .compile();
-      const app = mod.createNestApplication();
-      await app.init();
+      const app = await crearApp(baseFalsa());
       const http = app.getHttpServer();
       await request(http).get('/health').expect(200);
       await request(http).get('/me').expect(401);

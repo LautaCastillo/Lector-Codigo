@@ -1,7 +1,12 @@
 import {
   SIMBOLOGIAS_POR_DEFECTO,
+  type BienDetalleDto,
+  type BienDto,
+  type CambioBienDto,
   type CuentaDto,
+  type UbicacionDto,
   type EstadoCuenta,
+  type EventoAuditoriaDto,
   type ResultadoEscaneoDto,
   type Simbologia,
 } from '@patrimonio/shared';
@@ -52,6 +57,10 @@ export const actualizarNombre = (nombre: string) =>
 export type AccionCuenta = 'aprobar' | 'rechazar' | 'suspender' | 'reactivar' | 'baja';
 
 /** Solo administradores. Sin `estado` trae todas las cuentas. */
+/** Solo administradores. El servidor admite hasta 200 eventos por consulta. */
+export const listarAuditoria = (limite: number) =>
+  pedir<EventoAuditoriaDto[]>(`/admin/auditoria?limite=${limite}`);
+
 export const listarCuentas = (estado?: EstadoCuenta) =>
   pedir<CuentaDto[]>(`/admin/usuarios${estado ? `?estado=${estado}` : ''}`);
 
@@ -60,6 +69,18 @@ export const cambiarEstadoCuenta = (id: string, accion: AccionCuenta, motivo?: s
     method: 'POST',
     body: JSON.stringify(motivo ? { motivo } : {}),
   });
+
+export const listarUbicaciones = () => pedir<UbicacionDto[]>('/ubicaciones');
+
+/** Bienes que el catálogo ubica en `nombre` (hasta 1000). */
+export const bienesDeUbicacion = (nombre: string) => pedir<BienDto[]>(`/bienes?ubicacion=${encodeURIComponent(nombre)}`);
+
+export const buscarBienes = (texto: string) => pedir<BienDto[]>(`/bienes?q=${encodeURIComponent(texto)}`);
+
+export const obtenerBien = (numero: string) => pedir<BienDetalleDto>(`/bienes/${encodeURIComponent(numero)}`);
+
+export const historialBien = (numero: string) =>
+  pedir<CambioBienDto[]>(`/bienes/${encodeURIComponent(numero)}/historial`);
 
 export function enviarEscaneo(simbologia: Simbologia, valor: string) {
   return pedir<ResultadoEscaneoDto>('/bienes/escaneo', {
