@@ -40,17 +40,34 @@ enum Rol {
   relevador
 }
 
+/// pendiente -> activa | rechazada; activa <-> suspendida; baja es lógica y definitiva.
+enum EstadoCuenta {
+  pendiente
+  activa
+  rechazada
+  suspendida
+  baja
+}
+
 model Usuario {
-  id            String            @id @default(uuid())
+  id             String            @id @default(uuid())
   /// Identificador provisorio (cabecera x-relevador) o cuenta institucional futura.
-  cuenta        String            @unique
-  nombre        String?
-  rol           Rol               @default(relevador)
-  activo        Boolean           @default(true)
-  creadoEn      DateTime          @default(now())
-  relevamientos Relevamiento[]
-  cambios       HistorialCambio[]
-  exportaciones Exportacion[]
+  cuenta         String            @unique
+  nombre         String?
+  rol            Rol               @default(relevador)
+  estado         EstadoCuenta      @default(pendiente)
+  /// Quién aprobó la cuenta, cuándo, y el motivo del último cambio de estado o de rol.
+  aprobadoPor    String?
+  aprobador      Usuario?          @relation("Aprobacion", fields: [aprobadoPor], references: [id], onDelete: SetNull)
+  aprobados      Usuario[]         @relation("Aprobacion")
+  eventos        EventoAuditoria[]
+  aprobadoEn     DateTime?
+  motivoEstado   String?
+  ultimoAccesoEn DateTime?
+  creadoEn       DateTime          @default(now())
+  relevamientos  Relevamiento[]
+  cambios        HistorialCambio[]
+  exportaciones  Exportacion[]
 
   @@map("usuario")
 }
@@ -72,6 +89,11 @@ model Bien {
   areaResponsable    String?
   titularidad        Titularidad?
   numeroSerie        String?
+  /// Campos que trae el listado de SIU Diaguita ("Bienes de uso").
+  catalogo           String?
+  motivoAlta         String?
+  numeroAnterior     String?
+  expediente         String?
   creadoEn           DateTime          @default(now())
   modificadoEn       DateTime          @updatedAt
   codigos            CodigoBien[]
@@ -142,4 +164,60 @@ model Exportacion {
   creadoEn  DateTime @default(now())
 
   @@map("exportacion")
+}
+
+/// Registro de auditoría de la aplicación. Solo se agrega: un trigger impide modificar o borrar filas.
+/// Las correcciones se registran como eventos nuevos.
+model EventoAuditoria {
+  id                   String    @id @default(uuid(7))
+  /// Ej.: CUENTA_REGISTRADA, CUENTA_APROBADA, ESTADO_CUENTA_CAMBIADO, ROL_CAMBIADO, SESION_INICIADA.
+  tipo                 String
+  /// Nulo si el actor no existe (por ejemplo, un inicio de sesión fallido con un usuario inexistente).
+  actorUsuarioId       String?
+  actor                Usuario?  @relation(fields: [actorUsuarioId], references: [id], onDelete: Restrict)
+  actorRol             Rol?
+  sesionId             String?
+  dispositivoId        String?
+  entidadTipo          String?
+  entidadId            String?
+  /// UUID idempotente de la operación hecha en el dispositivo.
+  operacionClienteId   String?
+  horaDispositivo      DateTime? @db.Timestamptz(3)
+  /// Desfase de zona horaria del dispositivo, en minutos.
+  tzDispositivo        Int?
+  horaServidor         DateTime  @default(now()) @db.Timestamptz(3)
+  desfaseEstimadoMs    Int?
+  secuenciaDispositivo Int?
+  /// ok, rechazado o cuarentena.
+  resultado            String    @default("ok")
+  /// Obligatorio en cambios de rol o de estado de cuenta.
+  motivo               String?
+  /// Diff o resumen. Nunca contraseñas ni tokens.
+  datos                Json?
+  ip                   String?
+  userAgent            String?
+  versionApp           String?
+
+  @@index([tipo, horaServidor])
+  @@index([actorUsuarioId, horaServidor])
+  @@index([entidadTipo, entidadId])
+  @@map("evento_auditoria")
+}
+
+/// Red de seguridad: la llenan triggers de PostgreSQL ante cualquier INSERT, UPDATE o DELETE
+/// de las tablas de negocio, pase o no por la aplicación. Solo se agrega.
+model CambioFila {
+  id             String   @id @default(dbgenerated("gen_random_uuid()::text"))
+  tabla          String
+  operacion      String
+  filaId         String
+  antes          Json?
+  despues        Json?
+  /// Tomado de `app.usuario_id`, que el backend fija al inicio de cada transacción.
+  actorUsuarioId String?
+  en             DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([tabla, filaId])
+  @@index([en])
+  @@map("cambio_fila")
 }

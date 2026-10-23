@@ -16,9 +16,16 @@ export function normalizarCodigo(simbologia: Simbologia, valor: string): string 
   return v;
 }
 
-/** Candidatos de número de inventario para un valor normalizado (con y sin ceros a la izquierda). */
+/** Largo del número de inventario en SIU (ej. 00366415). Las etiquetas lo imprimen con ceros a la izquierda. */
+export const LARGO_INVENTARIO = 8;
+
+/**
+ * Candidatos de número de inventario para un valor normalizado: el valor tal cual, sin ceros a la
+ * izquierda y completado a LARGO_INVENTARIO. Cubre códigos con relleno distinto (EAN13, ITF) al guardado.
+ */
 export function candidatosInventario(valorNormalizado: string): string[] {
   if (!/^\d+$/.test(valorNormalizado)) return [valorNormalizado];
   const sinCeros = valorNormalizado.replace(/^0+/, '') || '0';
-  return [...new Set([valorNormalizado, sinCeros])];
+  const completo = sinCeros.length <= LARGO_INVENTARIO ? sinCeros.padStart(LARGO_INVENTARIO, '0') : sinCeros;
+  return [...new Set([valorNormalizado, sinCeros, completo])];
 }

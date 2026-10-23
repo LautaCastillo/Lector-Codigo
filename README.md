@@ -28,7 +28,7 @@ Incluido en la primera versión (solo Android):
 
 Fuera de alcance por ahora:
 
-- Autenticación (suspendida; el diseño la deja enchufable para el login institucional de la UNSa).
+- Login institucional de la UNSa (por ahora hay cuentas propias de la app con Supabase Auth; el diseño deja el reemplazo en un único punto).
 - Versión para iOS (se evaluará después, con el mismo código base).
 - Roles con permisos diferenciados (se diseñará el modelo, pero se implementará más adelante).
 - Impresión de etiquetas.
@@ -40,7 +40,7 @@ Solo lectura. La app nunca escribe en SIU. El backend consulta SIU Diaguita medi
 
 ## Usuarios
 
-Unas 30 personas del área de Patrimonio. En esta primera versión, todos los usuarios tienen las mismas funciones. El acceso se identifica provisoriamente por una cabecera; el login institucional se define más adelante.
+Unas 30 personas del área de Patrimonio. Cada una inicia sesión con una cuenta propia de la app (independiente de la cuenta de SIU Diaguita), lo que permite dejar constancia de quién hizo cada acción. Las cuentas nuevas quedan pendientes hasta que un administrador las habilita. El login institucional de la UNSa se define más adelante y reemplazará un único punto del backend (`backend/src/auth/relevador.guard.ts`).
 
 ## Datos de un bien
 
@@ -55,8 +55,8 @@ Según el formulario de alta de SIU Diaguita: fecha de incorporación, descripci
 | Datos sin conexión | SQLite (expo-sqlite) |
 | Backend | NestJS 12 (TypeScript, Vitest, oxlint) |
 | ORM | Prisma 7 |
-| Base de datos | PostgreSQL (Supabase si el plan gratuito alcanza; Docker en desarrollo) |
-| Autenticación | A definir con el Centro de Cómputos |
+| Base de datos | PostgreSQL en Supabase (plan gratuito). Docker local queda como alternativa |
+| Autenticación | Supabase Auth (correo y contraseña), provisoria; el método institucional se define con el Centro de Cómputos |
 | Repositorio | GitHub + GitHub Actions |
 
 ## Estructura del repositorio
@@ -73,14 +73,81 @@ Según el formulario de alta de SIU Diaguita: fecha de incorporación, descripci
 
 ## Estado
 
-En etapa de implementación inicial: estructura del monorepo, paquete `shared` y esqueleto del backend. Pendientes principales: simbologías realmente usadas, método de autenticación, consultas a SIU, significado de "Cantidad de bienes", estados y ubicaciones, imágenes, carga inicial y pago de Google Play. Ver `CLAUDE.md`.
+Etapa de implementación. Última actualización: 22/10/2026.
+
+### Qué funciona
+
+- **Backend (NestJS + Prisma + Supabase):** `GET /health`, `GET /configuracion/simbologias`, `POST /bienes/escaneo`, `GET /bienes/:numeroInventario`, `GET /me` y `PATCH /me`. Autenticación con el token de Supabase; las cuentas nuevas nacen inactivas.
+- **App (Expo SDK 57):** inicio de sesión, registro, cuenta pendiente de aprobación, inicio con funciones, escáner con cámara, mi perfil (editar nombre y cambiar contraseña), ajustes (modo claro, oscuro o automático) y menú lateral. Se adapta a distintos anchos de pantalla.
+- **Catálogo:** 55 bienes de prueba importados desde un listado de SIU. El escaneo resuelve el número de inventario aunque el código traiga otro relleno de ceros.
+- **Pruebas:** unitarias y e2e del backend y de `shared`, correctas. La app pasa el chequeo de tipos y el empaquetado Android; se probó en un celular con Expo Go.
+
+### No implementado todavía
+
+- Descarga automática del catálogo al dispositivo y uso sin conexión (SQLite) con sincronización.
+- Integración con SIU Diaguita desde el backend (`backend/src/siu/` vacío).
+- Pantallas de relevamientos, búsqueda, alta y edición de bienes, pendientes y exportación (el inicio las muestra como "Próximamente").
+- Revocación de sesiones al suspender una cuenta.
+- Login con nombre de usuario o correo resuelto en el servidor y recuperación de contraseña.
+- Tablas propias para áreas, ubicaciones, catálogo, empleados y responsables de uso.
+
+## Cambios recientes
+
+| Fecha | Cambio |
+|---|---|
+| 22/10/2026 | La base de desarrollo pasa de Docker a Supabase. Migraciones: `init`, `habilita_rls` (RLS sin políticas, bloquea la API pública de Supabase) y `campos_siu` (catálogo, motivo de alta, número anterior y expediente). |
+| 22/10/2026 | Se crea la app Expo con la pantalla de escaneo; se fija en SDK 57 por compatibilidad con Expo Go. |
+| 22/10/2026 | Autenticación con Supabase Auth. El backend valida el token (`SUPABASE_URL`); sin esa variable el backend no arranca (salvo `AUTH_PROVISORIA=true`, solo para desarrollo y pruebas). |
+| 22/10/2026 | Interfaz con la paleta de la UNSa: login, registro, inicio con tarjetas, menú lateral, perfil editable, ajustes, modo oscuro, botón para ver la contraseña y diseño adaptable. |
+| 23/10/2026 | La sesión pasa a `expo-secure-store` y la app se bloquea con PIN (y huella o rostro opcionales) al abrirla y tras 5 minutos en segundo plano (punto 5 del plan de mejoras). |
+| 23/10/2026 | Escaneo por lotes por ubicación: escaneo en ráfaga con detección de repetidos, faltantes y bienes de otra ubicación, lote guardado en el teléfono y resumen para compartir. |
+| 23/10/2026 | Ficha del bien con historial, búsqueda manual y escáner con resumen, vibración, linterna y descarte de lecturas repetidas. |
+| 23/10/2026 | Auditoría append-only: `evento_auditoria` y `cambio_fila` con triggers, bloqueo de modificaciones, eventos de cuentas y sesiones, endpoints `GET /admin/auditoria` y `GET /me/actividad`, y pantalla "Actividad" para administradores. |
+| 23/10/2026 | Estados de cuenta (pendiente, activa, rechazada, suspendida, baja), endpoints de aprobación para administradores, autorización por rol con denegación por defecto y pantalla "Cuentas" en la app (puntos 3 y 4 del plan de mejoras). |
+| 23/10/2026 | Seguridad: la autenticación falla cerrada y se elimina la API key del cliente y del backend (puntos 1 y 2 de la sección 3.5 del plan de mejoras). |
+| 22/10/2026 | Importador del listado "Bienes de uso" de SIU (`npm run importar -w backend -- archivo.xls`) y búsqueda por inventario completada a 8 dígitos. |
+
+## Puesta en marcha en otra computadora
+
+Requisitos: Node.js 24 o superior y Git. No hace falta Docker, porque la base está en Supabase.
+
+1. Clonar e instalar:
+   ```bash
+   git clone https://github.com/LautaCastillo/Lector-Codigo.git
+   cd Lector-Codigo
+   npm install
+   ```
+2. Crear `backend/.env` a partir de `.env.example`: completar `DATABASE_URL` (cadena **Session pooler** de Supabase, con la contraseña real y sin corchetes) y `SUPABASE_URL`.
+3. Crear `app/.env` a partir de `app/.env.example`: `EXPO_PUBLIC_API_URL` con la IP de la computadora en la red local (el celular no puede usar `localhost`), y `EXPO_PUBLIC_SUPABASE_URL` y `EXPO_PUBLIC_SUPABASE_KEY` con la clave **publicable** del proyecto (nunca la secreta).
+4. Compilar y preparar la base:
+   ```bash
+   npm run build -w shared
+   npm run prisma:generate -w backend
+   cd backend && npx prisma migrate deploy && cd ..
+   ```
+5. Iniciar el backend y la app, en dos terminales:
+   ```bash
+   npm run start:dev -w backend
+   npm run start -w @patrimonio/app
+   ```
+   Escanear el código QR con Expo Go (versión compatible con SDK 57). El celular debe estar en la misma red que la computadora.
+6. Cargar el catálogo de prueba (opcional): exportar "Bienes de uso" desde SIU Diaguita y correr `npm run importar -w backend -- ruta/al/archivo.xls`.
+
+Advertencias:
+
+- Los archivos `.env` no se versionan y deben crearse en cada computadora. Nunca subir credenciales.
+- Para entrar a la app hace falta una cuenta activa. La cuenta de prueba de administrador se pasa por fuera del repositorio y hay que cambiar su contraseña antes de cargar datos reales.
+- Con "Confirm email" activado en Supabase Auth, quien se registra debe confirmar el correo antes de entrar.
 
 ## Próximos pasos
 
-1. Confirmar con Patrimonio qué simbologías se usan y si el código equivale al número de inventario.
-2. Validar el modelo de datos y las listas de estados y ubicaciones.
-3. Obtener un listado de bienes de muestra para pruebas (sin datos sensibles).
-4. Completar el backend (SIU, sincronización) y comenzar la app.
+1. Descarga automática del catálogo al celular (SQLite) y escaneo sin conexión.
+2. Normalizar áreas, ubicaciones y catálogo en tablas propias; dejar preparados empleados y responsables de uso.
+3. Pantallas de búsqueda, relevamientos históricos, alta de bienes y exportación.
+4. Módulo de SIU Diaguita en el backend (requiere definir ambiente y cuenta de servicio, y rotar la cuenta `consulta.patrimonio`).
+5. Confirmar con Patrimonio las simbologías reales de las etiquetas y que el código equivale al número de inventario.
+
+La hoja de ruta vigente es `docs/plan-de-mejora-login-auditoria-siu.md` (con `docs/plan-de-mejoras-y-decisiones.md` como complemento). El estado por fases y las decisiones pendientes están en `docs/estado-y-retomar.md`; la guía para levantar el proyecto, en `docs/00-inicio/puesta-en-marcha.md`; el índice de toda la documentación, en `docs/README.md`.
 
 ## Mantenimiento
 

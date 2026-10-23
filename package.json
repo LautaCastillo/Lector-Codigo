@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "description": "App de inventario por código de barras para la Dirección de Patrimonio de la UNSa",
-  "workspaces": ["shared", "backend"],
+  "workspaces": ["shared", "backend", "app"],
   "scripts": {
     "build": "npm run build -w shared && npm run prisma:generate -w backend && npm run build -w backend",
     "lint": "npm run lint -w shared && npm run lint -w backend",

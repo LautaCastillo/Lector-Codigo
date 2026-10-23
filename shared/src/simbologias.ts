@@ -1,4 +1,4 @@
-/** Simbologías soportadas por expo-camera (SDK 58). Los valores coinciden con BarcodeType. */
+/** Simbologías soportadas por expo-camera (SDK 57). Los valores coinciden con BarcodeType. */
 export const SIMBOLOGIAS = [
   'code39',
   'code93',

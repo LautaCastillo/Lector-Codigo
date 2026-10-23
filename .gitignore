@@ -6,3 +6,4 @@ coverage
 .expo
 backend/src/generated
 .DS_Store
+graphify-out/
