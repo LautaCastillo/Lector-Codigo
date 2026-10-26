@@ -1,11 +1,12 @@
 import type { Session } from '@supabase/supabase-js';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { obtenerPerfil, type Perfil } from './api';
+import { AppState } from 'react-native';
+import { marcarClaveCambiada, obtenerPerfil, registrarInicioDeSesion, type Perfil } from './api';
 import { borrarLoteGuardado } from './lote-almacen';
 import { supabase } from './supabase';
 
-// Provisorio: permite entrar con un nombre de usuario (sin arroba) completando un dominio interno.
-// Se reemplaza por login con correo o nombre de usuario resuelto en el backend.
+// Permite entrar con un nombre de usuario (sin arroba) completando el dominio interno con el que el
+// administrador crea las cuentas (ver la Edge Function `admin-cuentas`).
 const DOMINIO_INTERNO = 'patrimonio.local';
 const aCuenta = (usuario: string) => {
   const limpio = usuario.trim().toLowerCase();
@@ -16,17 +17,13 @@ interface ContextoSesion {
   cargando: boolean;
   sesion: Session | null;
   perfil: Perfil | null;
+  /** La sesión es válida pero la persona no tiene una cuenta habilitada en la aplicación. */
+  sinCuenta: boolean;
   /** Mensaje si no se pudo consultar el perfil (por ejemplo, sin conexión). */
   errorPerfil: string | null;
   /** Devuelve un mensaje de error, o null si salió bien. */
   iniciarSesion: (usuario: string, clave: string) => Promise<string | null>;
-  /** `confirmar` indica que falta confirmar el correo antes de poder entrar. */
-  registrar: (
-    nombre: string,
-    correo: string,
-    clave: string,
-  ) => Promise<{ error: string | null; confirmar: boolean }>;
-  /** Devuelve un mensaje de error, o null si salió bien. */
+  /** Cambia la contraseña y limpia la marca de "contraseña temporal". Devuelve un error, o null si salió bien. */
   cambiarClave: (clave: string) => Promise<string | null>;
   cerrarSesion: () => Promise<void>;
   recargarPerfil: () => Promise<void>;
@@ -36,7 +33,7 @@ const Contexto = createContext<ContextoSesion | null>(null);
 
 function traducir(mensaje: string) {
   if (/invalid login credentials/i.test(mensaje)) return 'Usuario o contraseña incorrectos.';
-  if (/already registered|already been registered/i.test(mensaje)) return 'Ese correo ya tiene una cuenta.';
+  if (/same.*password|different from the old/i.test(mensaje)) return 'La contraseña nueva debe ser distinta de la actual.';
   if (/password.*(short|least|weak)/i.test(mensaje)) return 'La contraseña es demasiado débil.';
   if (/rate limit|too many/i.test(mensaje)) return 'Demasiados intentos. Probá de nuevo en unos minutos.';
   if (/network|fetch/i.test(mensaje)) return 'No hay conexión con el servidor.';
@@ -47,6 +44,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
   const [cargando, setCargando] = useState(true);
   const [sesion, setSesion] = useState<Session | null>(null);
   const [perfil, setPerfil] = useState<Perfil | null>(null);
+  const [sinCuenta, setSinCuenta] = useState(false);
   const [errorPerfil, setErrorPerfil] = useState<string | null>(null);
 
   useEffect(() => {
@@ -58,6 +56,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
       setSesion(nueva);
       if (!nueva) {
         setPerfil(null);
+        setSinCuenta(false);
         setErrorPerfil(null);
         setCargando(false);
       }
@@ -65,53 +64,74 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     return () => data.subscription.unsubscribe();
   }, []);
 
+  const usuarioId = sesion?.user.id;
+
   const recargarPerfil = useCallback(async () => {
+    if (!usuarioId) return;
     setErrorPerfil(null);
     try {
-      setPerfil(await obtenerPerfil());
+      const encontrado = await obtenerPerfil(usuarioId);
+      setPerfil(encontrado);
+      setSinCuenta(!encontrado);
     } catch (error) {
       setPerfil(null);
       setErrorPerfil(traducir(error instanceof Error ? error.message : 'Error de red'));
     } finally {
       setCargando(false);
     }
-  }, []);
+  }, [usuarioId]);
 
-  const usuarioId = sesion?.user.id;
   useEffect(() => {
     if (usuarioId) void recargarPerfil();
   }, [usuarioId, recargarPerfil]);
+
+  // Al volver a la app se vuelve a consultar la cuenta, así una suspensión se nota sin cerrar la app.
+  // Los fallos (sin conexión, por ejemplo) se ignoran: no se expulsa a nadie por una red inestable.
+  useEffect(() => {
+    if (!usuarioId) return;
+    const suscripcion = AppState.addEventListener('change', (estado) => {
+      if (estado !== 'active') return;
+      obtenerPerfil(usuarioId)
+        .then((encontrado) => {
+          if (encontrado) setPerfil(encontrado);
+        })
+        .catch(() => undefined);
+    });
+    return () => suscripcion.remove();
+  }, [usuarioId]);
 
   const valor = useMemo<ContextoSesion>(
     () => ({
       cargando,
       sesion,
       perfil,
+      sinCuenta,
       errorPerfil,
       recargarPerfil,
       iniciarSesion: async (usuario, clave) => {
         const { error } = await supabase.auth.signInWithPassword({ email: aCuenta(usuario), password: clave });
-        return error ? traducir(error.message) : null;
-      },
-      registrar: async (nombre, correo, clave) => {
-        const { data, error } = await supabase.auth.signUp({
-          email: correo.trim().toLowerCase(),
-          password: clave,
-          options: { data: { nombre: nombre.trim() } },
-        });
-        if (error) return { error: traducir(error.message), confirmar: false };
-        return { error: null, confirmar: !data.session };
+        if (error) return traducir(error.message);
+        // Deja el evento de auditoría y el último acceso; si falla (por ejemplo, cuenta suspendida) no frena el ingreso.
+        void registrarInicioDeSesion().catch(() => undefined);
+        return null;
       },
       cambiarClave: async (clave) => {
         const { error } = await supabase.auth.updateUser({ password: clave });
-        return error ? traducir(error.message) : null;
+        if (error) return traducir(error.message);
+        try {
+          await marcarClaveCambiada();
+          await recargarPerfil();
+        } catch (fallo) {
+          return traducir(fallo instanceof Error ? fallo.message : 'No se pudo confirmar el cambio.');
+        }
+        return null;
       },
       cerrarSesion: async () => {
         await borrarLoteGuardado();
         await supabase.auth.signOut();
       },
     }),
-    [cargando, sesion, perfil, errorPerfil, recargarPerfil],
+    [cargando, sesion, perfil, sinCuenta, errorPerfil, recargarPerfil],
   );
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;

@@ -2,13 +2,13 @@
 
 Índice y mapa de lectura para quien mantenga el proyecto.
 
-**Hoja de ruta vigente:** [`plan-de-mejora-login-auditoria-siu.md`](plan-de-mejora-login-auditoria-siu.md), "Plan de mejora de la app de relevamiento patrimonial de la UNSa: login, auditoría e integración con SIU-Diaguita". Define las fases 0 a 6, la arquitectura de login, la auditoría, la integración con SIU y la estructura de esta carpeta. En caso de contradicción con `CLAUDE.md`, prevalece el plan hasta que se actualice `CLAUDE.md`.
+**Hoja de ruta vigente:** [`plan-v3-supabase-directo.md`](plan-v3-supabase-directo.md), "Plan v3: app conectada a Supabase, cuentas por administrador y catálogo por archivo" (26/10/2026). Define las decisiones, la arquitectura sin backend propio, la seguridad por RLS, el catálogo por archivo, los relevamientos compartidos y las fases 0 a 6. `CLAUDE.md` se alineó con este plan; si vuelven a diferir, manda el plan.
 
-[`plan-de-mejoras-y-decisiones.md`](plan-de-mejoras-y-decisiones.md) (v2, 23/10/2026) es un **complemento**: parte del plan vigente y le suma decisiones del autor y una lectura del código. Es una referencia; cuando difiere del plan vigente manda el plan vigente. Las diferencias están en [`estado-y-retomar.md`](estado-y-retomar.md), sección 5.
+Los planes anteriores son **históricos** y se conservan como referencia de investigación: [`plan-de-mejora-login-auditoria-siu.md`](plan-de-mejora-login-auditoria-siu.md) y [`plan-de-mejoras-y-decisiones.md`](plan-de-mejoras-y-decisiones.md) (v2). Donde difieren del v3, manda el v3.
 
 ## Por dónde empezar
 
-1. [`plan-de-mejora-login-auditoria-siu.md`](plan-de-mejora-login-auditoria-siu.md): la hoja de ruta.
+1. [`plan-v3-supabase-directo.md`](plan-v3-supabase-directo.md): la hoja de ruta.
 2. [`estado-y-retomar.md`](estado-y-retomar.md): qué está hecho, qué falta, en qué fase estamos y qué decisiones esperan respuesta.
 3. [`00-inicio/puesta-en-marcha.md`](00-inicio/puesta-en-marcha.md): cómo levantar el proyecto en una computadora nueva.
 4. [`06-bitacora/`](06-bitacora/): qué se hizo y por qué, mes a mes.
@@ -18,12 +18,13 @@
 
 | Ruta | Contenido | Estado |
 |---|---|---|
-| `plan-de-mejora-login-auditoria-siu.md` | Hoja de ruta vigente | Vigente |
-| `plan-de-mejoras-y-decisiones.md` | Complemento (v2): decisiones del autor y revisión del código | Referencia |
+| `plan-v3-supabase-directo.md` | Hoja de ruta vigente | Vigente |
+| `plan-de-mejora-login-auditoria-siu.md` | Plan anterior (login propia, auditoría, SIU) | Histórico |
+| `plan-de-mejoras-y-decisiones.md` | Plan anterior, complemento (v2) | Histórico |
 | `estado-y-retomar.md` | Estado por fases y decisiones pendientes | Vigente |
 | `00-inicio/` | Puesta en marcha | Vigente |
-| `01-arquitectura/` | Diagramas C4, secuencias y modelo de datos (hoy solo [`arquitectura.md`](arquitectura.md)) | Parcial |
-| `02-decisiones/` | ADR en formato MADR | Por crear |
+| `01-arquitectura/` | Diagramas C4, secuencias y modelo de datos (hoy solo [`arquitectura.md`](01-arquitectura/arquitectura.md)) | Parcial |
+| `02-decisiones/` | ADR en formato MADR (0001 a 0006) | Vigente |
 | `03-api/` | OpenAPI y convenciones | Por crear |
 | `04-operacion/` | Runbook y seguridad | Por crear |
 | `05-diseno/` | Figma y accesibilidad | Por crear |
@@ -32,7 +33,7 @@
 | `siu/` | Notas sobre SIU Diaguita | Vigente |
 | `consultas-unsa.md` | Consultas a la UNSa | Vigente |
 
-Las carpetas "por crear" siguen la estructura de la sección 6 del plan y se completan al llegar su fase.
+Las carpetas "por crear" siguen la estructura de la sección 6 del plan anterior y se completan al llegar su fase.
 
 ## Convenciones
 

@@ -91,3 +91,8 @@ export const ETIQUETA_CODIGO: Record<string, string> = {
   codigo_danado: 'Código dañado',
   desconocido: 'Código desconocido',
 };
+
+/** Las cuentas por nombre de usuario se guardan con un dominio interno: acá se muestra solo el usuario. */
+export function nombreDeCuenta(cuenta: string): string {
+  return cuenta.endsWith('@patrimonio.local') ? cuenta.slice(0, -'@patrimonio.local'.length) : cuenta;
+}

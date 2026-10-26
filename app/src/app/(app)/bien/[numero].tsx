@@ -93,6 +93,7 @@ export default function FichaBien() {
             </Pressable>
           </View>
           <Text style={e.descripcion}>{bien.descripcion ?? 'Sin descripción'}</Text>
+          {bien.responsableUso && <Text style={e.responsable}>Responsable: {bien.responsableUso}</Text>}
           <Etiquetas bien={bien} />
           <Boton texto="Registrar relevamiento" onPress={() => router.push({ pathname: '/relevamiento/nuevo', params: { numero: bien.numeroInventario } })} />
         </View>
@@ -214,6 +215,7 @@ const fabrica = (c: Paleta) => ({
   copiar: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 10 },
   copiarTexto: { fontSize: 14, fontWeight: '600', color: c.accion },
   descripcion: { fontSize: 16, color: c.texto, lineHeight: 22 },
+  responsable: { fontSize: 15, fontWeight: '600', color: c.texto },
   pie: { fontSize: 13, color: c.suave },
   vacio: { fontSize: 15, color: c.suave },
   relevamiento: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: 1, borderTopColor: c.borde },

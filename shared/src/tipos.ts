@@ -14,6 +14,12 @@ export type EstadoCuenta = (typeof ESTADOS_CUENTA)[number];
 
 /** Tipos de evento del registro de auditoría. Se amplían al sumar funciones (relevamientos, exportaciones, sincronización). */
 export const TIPOS_EVENTO_AUDITORIA = [
+  'CATALOGO_IMPORTADO',
+  'JORNADA_CREADA',
+  'JORNADA_CERRADA',
+  'CUENTA_CREADA',
+  'CLAVE_CAMBIADA',
+  'CLAVE_RESTABLECIDA',
   'CUENTA_REGISTRADA',
   'CUENTA_APROBADA',
   'CUENTA_RECHAZADA',
@@ -52,6 +58,8 @@ export interface CuentaDto {
   creadoEn: string;
   aprobadoEn: string | null;
   motivoEstado: string | null;
+  /** La persona todavía no cambió la contraseña temporal que le dio un administrador. */
+  debeCambiarClave?: boolean;
 }
 
 export interface EscaneoDto {
@@ -143,6 +151,8 @@ export interface RelevamientoDto {
   idCliente: string;
   /** UUID del lote del que forma parte, si se relevó en ráfaga. */
   loteId?: string;
+  /** Jornada compartida (relevamiento de un área o una ubicación) a la que pertenece la lectura. */
+  jornadaId?: string;
   /** Obligatorio cuando el resultado es `encontrado`. */
   numeroInventario?: string;
   /** Solo en hallazgos. La clase y la descripción son obligatorias. */

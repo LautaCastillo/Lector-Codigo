@@ -5,7 +5,7 @@ import { AppState } from 'react-native';
 import { borrarSecreto, guardarSecreto, leerSecreto } from './almacen-seguro';
 import { useSesion } from './sesion';
 
-/** Tras este tiempo en segundo plano la app vuelve a pedir el PIN. También se pide en cada arranque en frío. */
+/** Con el PIN activado (es opcional), tras este tiempo en segundo plano la app vuelve a pedirlo. También se pide en cada arranque en frío. */
 const SEGUNDOS_EN_SEGUNDO_PLANO = 5 * 60;
 export const LARGO_PIN = 6;
 const MAX_INTENTOS = 5;
@@ -31,6 +31,8 @@ interface ContextoBloqueo {
   biometriaActiva: boolean;
   intentosRestantes: number;
   configurar: (pin: string, biometria: boolean) => Promise<void>;
+  /** Quita el PIN: la app deja de bloquearse. */
+  desactivar: () => Promise<void>;
   desbloquearConPin: (pin: string) => Promise<ResultadoPin>;
   desbloquearConBiometria: () => Promise<boolean>;
 }
@@ -124,6 +126,12 @@ export function BloqueoProvider({ children }: { children: ReactNode }) {
     [usuarioId],
   );
 
+  const desactivar = useCallback(async () => {
+    await Promise.all([borrarSecreto(CLAVE_CONFIG), borrarSecreto(CLAVE_INTENTOS)]);
+    setConfig(null);
+    setIntentos(0);
+  }, []);
+
   const desbloquearConPin = useCallback(
     async (pin: string): Promise<ResultadoPin> => {
       if (!config) return 'incorrecto';
@@ -167,10 +175,11 @@ export function BloqueoProvider({ children }: { children: ReactNode }) {
       biometriaActiva: !!config?.biometria && biometriaDisponible,
       intentosRestantes: MAX_INTENTOS - intentos,
       configurar,
+      desactivar,
       desbloquearConPin,
       desbloquearConBiometria,
     }),
-    [cargando, config, bloqueado, biometriaDisponible, intentos, configurar, desbloquearConPin, desbloquearConBiometria],
+    [cargando, config, bloqueado, biometriaDisponible, intentos, configurar, desactivar, desbloquearConPin, desbloquearConBiometria],
   );
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;

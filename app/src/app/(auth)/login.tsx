@@ -1,4 +1,3 @@
-import { Link } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
 import { Boton, Campo, Entrada, Logo } from '../../components/ui';
@@ -56,10 +55,7 @@ export default function Login() {
           </Entrada>
           <Entrada orden={2}>
             <View style={e.pie}>
-              <Text style={e.subtitulo}>¿No tenés cuenta?</Text>
-              <Link href="/registro" style={e.enlace}>
-                Crear cuenta
-              </Link>
+              <Text style={e.subtitulo}>¿No tenés cuenta? Pedísela a un administrador de Patrimonio.</Text>
             </View>
           </Entrada>
         </View>
@@ -75,5 +71,4 @@ const fabrica = (c: Paleta) => ({
   subtitulo: { fontSize: 15, color: c.suave, textAlign: 'center' },
   error: { color: c.error, fontSize: 15, textAlign: 'center' },
   pie: { alignItems: 'center', gap: 4 },
-  enlace: { color: c.accion, fontSize: 16, fontWeight: '700', paddingVertical: 8 },
 });

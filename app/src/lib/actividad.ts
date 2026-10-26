@@ -12,12 +12,12 @@ export const CATEGORIAS: { valor: Categoria; titulo: string }[] = [
 /** Agrupa los tipos de evento para poder filtrarlos desde la pantalla. */
 export function categoria(tipo: string): Categoria {
   if (tipo === 'SESION_INICIADA') return 'sesiones';
-  if (tipo === 'RELEVAMIENTO_REGISTRADO' || tipo === 'EXPORTACION_GENERADA' || tipo === 'FOTO_ADJUNTADA' || tipo === 'HALLAZGO_VINCULADO') return 'relevamientos';
+  if (tipo === 'JORNADA_CREADA' || tipo === 'JORNADA_CERRADA' || tipo === 'CATALOGO_IMPORTADO' || tipo === 'RELEVAMIENTO_REGISTRADO' || tipo === 'EXPORTACION_GENERADA' || tipo === 'FOTO_ADJUNTADA' || tipo === 'HALLAZGO_VINCULADO') return 'relevamientos';
   if (tipo === 'AUDITORIA_CONSULTADA') return 'consultas';
   return 'cuentas';
 }
 
-type Datos = { accion?: string; rolAnterior?: string; rolNuevo?: string; estadoInicial?: string; cantidad?: number; ubicacion?: string | null; filas?: number; formato?: string; codigoProvisorio?: string | null; numeroInventario?: string } | null;
+type Datos = { accion?: string; rolAnterior?: string; rolNuevo?: string; estadoInicial?: string; cantidad?: number; ubicacion?: string | null; filas?: number; formato?: string; codigoProvisorio?: string | null; numeroInventario?: string; archivo?: string; tipo?: string; alcance?: string; esperados?: number; encontrados?: number; nuevos?: number; modificados?: number } | null;
 
 const ROL: Record<string, string> = { administrador: 'administrador', relevador: 'relevador' };
 
@@ -28,6 +28,18 @@ export function describirEvento(e: EventoAuditoriaDto, nombre: (id: string | nul
   const datos = (e.datos ?? null) as Datos;
 
   switch (e.tipo) {
+    case 'CUENTA_CREADA':
+      return `${actor} creó la cuenta de ${afectada}${datos?.rolNuevo ? ` como ${ROL[datos.rolNuevo] ?? datos.rolNuevo}` : ''}`;
+    case 'CATALOGO_IMPORTADO':
+      return `${actor} importó el catálogo (${datos?.archivo ?? 'archivo'}): ${datos?.nuevos ?? 0} nuevos, ${datos?.modificados ?? 0} modificados`;
+    case 'JORNADA_CREADA':
+      return `${actor} abrió una jornada de relevamiento (${datos?.tipo === 'area' ? 'área' : 'ubicación'}: ${datos?.alcance ?? ''})`;
+    case 'JORNADA_CERRADA':
+      return `${actor} cerró la jornada de ${datos?.alcance ?? ''}: ${datos?.encontrados ?? 0} de ${datos?.esperados ?? 0} encontrados`;
+    case 'CLAVE_CAMBIADA':
+      return `${actor} cambió su contraseña`;
+    case 'CLAVE_RESTABLECIDA':
+      return `${actor} restableció la contraseña de ${afectada}`;
     case 'CUENTA_REGISTRADA':
       return `${actor} se registró${datos?.estadoInicial === 'pendiente' ? ' y espera aprobación' : ''}`;
     case 'CUENTA_APROBADA':

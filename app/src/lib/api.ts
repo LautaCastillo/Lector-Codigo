@@ -1,31 +1,50 @@
+// Punto único por el que las pantallas piden datos. Desde la fase 3 del plan v3 todo va directo a Supabase:
+//  - cuentas y sesión: este archivo,
+//  - catálogo de bienes: lib/catalogo.ts,
+//  - relevamientos, hallazgos con foto, exportación y auditoría: lib/relevamientos.ts.
+// Ya no hay llamadas al backend propio.
 import {
   SIMBOLOGIAS_POR_DEFECTO,
   type BienDetalleDto,
-  type BienDto,
-  type RelevamientoDto,
-  type RelevamientoRegistradoDto,
-  type ResultadoSubidaDto,
   type CambioBienDto,
   type CuentaDto,
-  type UbicacionDto,
   type EstadoCuenta,
-  type EventoAuditoriaDto,
+  type RelevamientoRegistradoDto,
   type ResultadoEscaneoDto,
+  type Rol,
   type Simbologia,
 } from '@patrimonio/shared';
+import {
+  areas,
+  bienesPor,
+  responsables,
+  bienesDeUbicacion as bienesDeUbicacionCatalogo,
+  buscar,
+  buscarPorInventario,
+  historial,
+  resolverEscaneo,
+  ubicaciones,
+} from './catalogo';
+import {
+  obtenerRelevamiento as obtenerRelevamientoDirecto,
+  relevamientosDeBien as relevamientosDeBienDirecto,
+  vincularHallazgo as vincularHallazgoDirecto,
+} from './relevamientos';
 import { supabase } from './supabase';
 
-// En el celular, "localhost" es el propio teléfono: usar la IP de la PC en la red local.
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
-
 export interface Perfil {
+  id: string;
   cuenta: string;
   nombre: string | null;
   rol: 'administrador' | 'relevador';
   estado: EstadoCuenta;
   activo: boolean;
+  motivoEstado: string | null;
+  /** Tiene una contraseña temporal: debe elegir una nueva antes de usar la app. */
+  debeCambiarClave: boolean;
 }
 
+/** Error con el código de estado que las pantallas usan para distinguir "no existe" (404) de otros fallos. */
 export class ErrorApi extends Error {
   constructor(
     readonly estado: number,
@@ -35,170 +54,149 @@ export class ErrorApi extends Error {
   }
 }
 
-async function pedir<T>(ruta: string, init?: RequestInit): Promise<T> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  const respuesta = await fetch(`${BASE_URL}${ruta}`, {
-    ...init,
-    headers: {
-      'content-type': 'application/json',
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
-    },
+const mensajeDe = (error: { message: string }) => error.message;
+
+// ---------------------------------------------------------------------------------------------------------
+// Cuentas y sesión
+// ---------------------------------------------------------------------------------------------------------
+
+/** La cuenta de la persona que inició sesión, o null si todavía no tiene una habilitada. */
+export async function obtenerPerfil(authId: string): Promise<Perfil | null> {
+  const { data, error } = await supabase
+    .from('usuario')
+    .select('id, cuenta, nombre, rol, estado, motivoEstado, debeCambiarClave')
+    .eq('authId', authId)
+    .maybeSingle();
+  if (error) throw new Error(mensajeDe(error));
+  if (!data) return null;
+  return { ...(data as Omit<Perfil, 'activo'>), activo: data.estado === 'activa' };
+}
+
+/** Solo se puede cambiar el propio nombre: lo imponen los privilegios y las políticas de la base. */
+export async function actualizarNombre(id: string, nombre: string): Promise<void> {
+  const { error } = await supabase.from('usuario').update({ nombre }).eq('id', id);
+  if (error) throw new Error(mensajeDe(error));
+}
+
+/** La persona terminó de cambiar su contraseña: se limpia la marca de "contraseña temporal". */
+export async function marcarClaveCambiada(): Promise<void> {
+  const { error } = await supabase.rpc('marcar_clave_cambiada');
+  if (error) throw new Error(mensajeDe(error));
+}
+
+/** Deja el último acceso y el evento de auditoría de un inicio de sesión. Un fallo no impide entrar. */
+export async function registrarInicioDeSesion(): Promise<void> {
+  await supabase.rpc('registrar_inicio_sesion');
+}
+
+/** Solo administradores: todas las cuentas, de la más nueva a la más vieja. */
+export async function listarCuentas(): Promise<CuentaDto[]> {
+  const { data, error } = await supabase
+    .from('usuario')
+    .select('id, cuenta, nombre, rol, estado, creadoEn, aprobadoEn, motivoEstado, debeCambiarClave')
+    .order('creadoEn', { ascending: false });
+  if (error) throw new Error(mensajeDe(error));
+  return (data ?? []) as CuentaDto[];
+}
+
+export type AccionCuenta = 'suspender' | 'reactivar' | 'baja';
+const ESTADO_DE: Record<AccionCuenta, EstadoCuenta> = { suspender: 'suspendida', reactivar: 'activa', baja: 'baja' };
+
+/** Solo administradores. Suspender y dar de baja piden un motivo y cierran las sesiones abiertas. */
+export async function cambiarEstadoCuenta(id: string, accion: AccionCuenta, motivo?: string): Promise<void> {
+  const { error } = await supabase.rpc('cambiar_estado_cuenta', {
+    p_usuario_id: id,
+    p_estado: ESTADO_DE[accion],
+    p_motivo: motivo ?? null,
   });
-  if (!respuesta.ok) {
-    const cuerpo = (await respuesta.json().catch(() => null)) as { message?: string } | null;
-    throw new ErrorApi(respuesta.status, cuerpo?.message ?? `Error ${respuesta.status} del servidor`);
+  if (error) throw new Error(mensajeDe(error));
+}
+
+export async function cambiarRolCuenta(id: string, rol: Rol, motivo: string): Promise<void> {
+  const { error } = await supabase.rpc('cambiar_rol_cuenta', { p_usuario_id: id, p_rol: rol, p_motivo: motivo });
+  if (error) throw new Error(mensajeDe(error));
+}
+
+/** Llama a la Edge Function de administración. Devuelve el mensaje del servidor si falla. */
+async function administrarCuentas<T>(cuerpo: Record<string, unknown>): Promise<T> {
+  const { data, error } = await supabase.functions.invoke('admin-cuentas', { body: cuerpo });
+  if (error) {
+    const respuesta = (error as { context?: Response }).context;
+    const detalle = respuesta ? ((await respuesta.json().catch(() => null)) as { error?: string } | null) : null;
+    throw new Error(detalle?.error ?? 'No se pudo completar la operación. Revisá la conexión.');
   }
-  return (await respuesta.json()) as T;
+  return data as T;
 }
 
-export interface FiltroExportacion {
-  desde?: string;
-  hasta?: string;
-  ubicacion?: string;
-  resultado?: 'encontrado' | 'no_encontrado' | 'sin_verificar' | 'hallazgo';
-  /** Un administrador puede limitar la exportación a lo suyo. */
-  mios?: boolean;
+export interface CuentaCreada {
+  id: string;
+  cuenta: string;
+  /** Se muestra una sola vez: el administrador se la entrega a la persona. */
+  claveTemporal: string;
 }
 
-export interface ArchivoCsv {
-  csv: string;
-  nombre: string;
-  filas: number;
-  /** Huella SHA-256 del archivo: la misma queda registrada en el servidor. */
-  hash: string;
-  /** Había más de 10.000 filas: solo se exportaron las más recientes. */
-  truncado: boolean;
-}
+export const crearCuenta = (usuario: string, nombre: string, rol: Rol) =>
+  administrarCuentas<CuentaCreada>({ accion: 'crear', usuario, nombre, rol });
 
-/** Descarga los relevamientos en CSV. La exportación queda registrada en el servidor. */
-export async function exportarRelevamientos(filtro: FiltroExportacion): Promise<ArchivoCsv> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  const params = new URLSearchParams();
-  if (filtro.desde) params.set('desde', filtro.desde);
-  if (filtro.hasta) params.set('hasta', filtro.hasta);
-  if (filtro.ubicacion) params.set('ubicacion', filtro.ubicacion);
-  if (filtro.resultado) params.set('resultado', filtro.resultado);
-  if (filtro.mios) params.set('mios', '1');
-  const respuesta = await fetch(`${BASE_URL}/relevamientos/exportar?${params.toString()}`, {
-    headers: token ? { authorization: `Bearer ${token}` } : {},
-  });
-  if (!respuesta.ok) {
-    const cuerpo = (await respuesta.json().catch(() => null)) as { message?: string } | null;
-    throw new ErrorApi(respuesta.status, cuerpo?.message ?? `Error ${respuesta.status} del servidor`);
-  }
-  return {
-    csv: await respuesta.text(),
-    nombre: respuesta.headers.get('content-disposition')?.match(/filename="([^"]+)"/)?.[1] ?? 'relevamientos.csv',
-    filas: Number(respuesta.headers.get('x-filas') ?? 0),
-    hash: respuesta.headers.get('x-hash-sha256') ?? '',
-    truncado: respuesta.headers.get('x-truncado') === '1',
-  };
-}
+export const restablecerClave = (usuarioId: string) =>
+  administrarCuentas<{ claveTemporal: string }>({ accion: 'restablecer', usuarioId });
 
-export const obtenerPerfil = () => pedir<Perfil>('/me');
-
-export const actualizarNombre = (nombre: string) =>
-  pedir<Perfil>('/me', { method: 'PATCH', body: JSON.stringify({ nombre }) });
-
-export type AccionCuenta = 'aprobar' | 'rechazar' | 'suspender' | 'reactivar' | 'baja';
-
-/** Solo administradores. Sin `estado` trae todas las cuentas. */
-/** Solo administradores. El servidor admite hasta 200 eventos por consulta. */
-export const listarAuditoria = (limite: number) =>
-  pedir<EventoAuditoriaDto[]>(`/admin/auditoria?limite=${limite}`);
-
-export const listarCuentas = (estado?: EstadoCuenta) =>
-  pedir<CuentaDto[]>(`/admin/usuarios${estado ? `?estado=${estado}` : ''}`);
-
-export const cambiarEstadoCuenta = (id: string, accion: AccionCuenta, motivo?: string) =>
-  pedir<CuentaDto>(`/admin/usuarios/${encodeURIComponent(id)}/${accion}`, {
-    method: 'POST',
-    body: JSON.stringify(motivo ? { motivo } : {}),
-  });
-
-/** El servidor admite hasta 500 por subida: se manda en tandas y se suman los resultados. */
-export async function subirRelevamientos(relevamientos: RelevamientoDto[]): Promise<ResultadoSubidaDto> {
-  const total: ResultadoSubidaDto = { registrados: 0, duplicados: 0, rechazados: [] };
-  for (let i = 0; i < relevamientos.length; i += 400) {
-    const r = await pedir<ResultadoSubidaDto>('/relevamientos', {
-      method: 'POST',
-      body: JSON.stringify({ relevamientos: relevamientos.slice(i, i + 400) }),
-    });
-    total.registrados += r.registrados;
-    total.duplicados += r.duplicados;
-    total.rechazados.push(...r.rechazados);
-  }
-  return total;
-}
-
-export const misRelevamientos = (limite = 300) => pedir<RelevamientoRegistradoDto[]>(`/me/relevamientos?limite=${limite}`);
+// ---------------------------------------------------------------------------------------------------------
+// Relevamientos, hallazgos con foto, exportación y auditoría (lib/relevamientos.ts)
+// ---------------------------------------------------------------------------------------------------------
+export { exportarRelevamientos, fotoDeRelevamiento, listarAuditoria, misRelevamientos, relevamientosDelEquipo, listarJornadas, obtenerJornada, abrirJornada, cerrarJornada, avanceDeJornada, suscribirseAJornada, subirFotoDeHallazgo, subirRelevamientos } from './relevamientos';
+export type { ArchivoCsv, FiltroExportacion, FilaAvance, Jornada } from './relevamientos';
 
 /** Los últimos relevamientos de un bien, de cualquier relevador. */
-export const relevamientosDeBien = (numero: string, limite = 5) =>
-  pedir<RelevamientoRegistradoDto[]>(`/bienes/${encodeURIComponent(numero)}/relevamientos?limite=${limite}`);
-
-/** Dirección y cabeceras para mostrar la foto de un hallazgo (requiere sesión). */
-export async function fotoDeRelevamiento(id: string): Promise<{ uri: string; headers: Record<string, string> }> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  const headers: Record<string, string> = token ? { authorization: `Bearer ${token}` } : {};
-  return { uri: `${BASE_URL}/relevamientos/${encodeURIComponent(id)}/foto`, headers };
+export async function relevamientosDeBien(numero: string, limite = 5): Promise<RelevamientoRegistradoDto[]> {
+  const lista = await relevamientosDeBienDirecto(numero, limite);
+  if (!lista) throw new ErrorApi(404, 'Este bien no está en el catálogo.');
+  return lista;
 }
 
-/**
- * Sube la foto (un JPEG ya reducido) de un hallazgo propio. Es idempotente: reintentar con la misma
- * foto no hace nada.
- */
-export async function subirFotoDeHallazgo(idCliente: string, foto: Blob): Promise<void> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  const respuesta = await fetch(`${BASE_URL}/relevamientos/cliente/${encodeURIComponent(idCliente)}/foto`, {
-    method: 'PUT',
-    headers: { 'content-type': 'image/jpeg', ...(token ? { authorization: `Bearer ${token}` } : {}) },
-    body: foto,
-  });
-  if (!respuesta.ok) {
-    const cuerpo = (await respuesta.json().catch(() => null)) as { message?: string } | null;
-    throw new ErrorApi(respuesta.status, cuerpo?.message ?? `Error ${respuesta.status} del servidor`);
-  }
+export async function obtenerRelevamiento(id: string): Promise<RelevamientoRegistradoDto> {
+  const relevamiento = await obtenerRelevamientoDirecto(id);
+  if (!relevamiento) throw new ErrorApi(404, 'No se encontró el relevamiento o no tenés permiso para verlo.');
+  return relevamiento;
 }
 
 /** Solo administradores: asocia un hallazgo con el bien del catálogo al que corresponde. */
-export const vincularHallazgo = (id: string, numeroInventario: string, motivo: string) =>
-  pedir<RelevamientoRegistradoDto>(`/relevamientos/${encodeURIComponent(id)}/vincular`, {
-    method: 'PATCH',
-    body: JSON.stringify({ numeroInventario, motivo }),
-  });
-
-export const obtenerRelevamiento = (id: string) => pedir<RelevamientoRegistradoDto>(`/relevamientos/${encodeURIComponent(id)}`);
-
-export const listarUbicaciones = () => pedir<UbicacionDto[]>('/ubicaciones');
-
-/** Bienes que el catálogo ubica en `nombre` (hasta 1000). */
-export const bienesDeUbicacion = (nombre: string) => pedir<BienDto[]>(`/bienes?ubicacion=${encodeURIComponent(nombre)}`);
-
-export const buscarBienes = (texto: string) => pedir<BienDto[]>(`/bienes?q=${encodeURIComponent(texto)}`);
-
-export const obtenerBien = (numero: string) => pedir<BienDetalleDto>(`/bienes/${encodeURIComponent(numero)}`);
-
-export const historialBien = (numero: string) =>
-  pedir<CambioBienDto[]>(`/bienes/${encodeURIComponent(numero)}/historial`);
-
-export function enviarEscaneo(simbologia: Simbologia, valor: string) {
-  return pedir<ResultadoEscaneoDto>('/bienes/escaneo', {
-    method: 'POST',
-    body: JSON.stringify({ simbologia, valor }),
-  });
+export async function vincularHallazgo(id: string, numeroInventario: string, motivo: string): Promise<RelevamientoRegistradoDto> {
+  const bien = await buscarPorInventario(numeroInventario);
+  if (!bien) throw new ErrorApi(404, 'El bien no existe en el catálogo.');
+  await vincularHallazgoDirecto(id, bien.id, motivo);
+  return obtenerRelevamiento(id);
 }
 
-/** Si el servidor no responde, el escáner arranca con las simbologías por defecto. */
+// ---------------------------------------------------------------------------------------------------------
+// Catálogo de bienes (lib/catalogo.ts)
+// ---------------------------------------------------------------------------------------------------------
+export const listarUbicaciones = () => ubicaciones();
+export const listarAreas = () => areas();
+export const listarResponsables = () => responsables();
+export const bienesDe = bienesPor;
+export type { Agrupacion, BienDeLista, CampoAgrupacion } from './catalogo';
+
+/** Bienes que el catálogo ubica en `nombre` (hasta 1000). */
+export const bienesDeUbicacion = (nombre: string) => bienesDeUbicacionCatalogo(nombre);
+
+export const buscarBienes = (texto: string) => buscar(texto);
+
+export async function obtenerBien(numero: string): Promise<BienDetalleDto> {
+  const bien = await buscarPorInventario(numero);
+  if (!bien) throw new ErrorApi(404, 'Este bien no está en el catálogo.');
+  return bien;
+}
+
+export async function historialBien(numero: string): Promise<CambioBienDto[]> {
+  const cambios = await historial(numero);
+  if (!cambios) throw new ErrorApi(404, 'Este bien no está en el catálogo.');
+  return cambios;
+}
+
+export const enviarEscaneo = (simbologia: Simbologia, valor: string): Promise<ResultadoEscaneoDto> => resolverEscaneo(simbologia, valor);
+
+/** Simbologías que lee la cámara. Por ahora son las predeterminadas; una lista configurable llegará con la tabla de ajustes. */
 export async function simbologiasHabilitadas(): Promise<Simbologia[]> {
-  try {
-    const { habilitadas } = await pedir<{ habilitadas: Simbologia[] }>('/configuracion/simbologias');
-    return habilitadas.length ? habilitadas : [...SIMBOLOGIAS_POR_DEFECTO];
-  } catch {
-    return [...SIMBOLOGIAS_POR_DEFECTO];
-  }
+  return [...SIMBOLOGIAS_POR_DEFECTO];
 }

@@ -75,7 +75,7 @@ export default function Exportar() {
         ...(resultado ? { resultado } : {}),
         ...(ubicacion ? { ubicacion } : {}),
         ...(esAdmin && soloMios ? { mios: true } : {}),
-      });
+      }, esAdmin);
       if (datos.filas === 0) {
         setError('No hay relevamientos con esos filtros.');
       } else {

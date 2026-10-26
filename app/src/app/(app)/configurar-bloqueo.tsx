@@ -1,21 +1,27 @@
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
-import { Boton, Logo } from '../components/ui';
-import { PanelPin } from '../components/pin';
-import { LARGO_PIN, pinDebil, useBloqueo } from '../lib/bloqueo';
-import { useSesion } from '../lib/sesion';
-import { useEstilos, type Paleta } from '../lib/tema';
+import { PanelPin } from '../../components/pin';
+import { Boton } from '../../components/ui';
+import { LARGO_PIN, pinDebil, useBloqueo } from '../../lib/bloqueo';
+import { useEstilos, type Paleta } from '../../lib/tema';
 
 type Paso = { tipo: 'crear' } | { tipo: 'confirmar'; pin: string } | { tipo: 'biometria'; pin: string };
 
-/** Primer ingreso de una sesión: se crea un PIN para proteger la app, y opcionalmente la huella o el rostro. */
+/** Activa (o cambia) el PIN opcional que protege la app, y opcionalmente la huella o el rostro. Se abre desde Ajustes. */
 export default function ConfigurarBloqueo() {
   const { configurar, biometriaDisponible } = useBloqueo();
-  const { cerrarSesion } = useSesion();
+  const router = useRouter();
   const e = useEstilos(fabrica);
   const [paso, setPaso] = useState<Paso>({ tipo: 'crear' });
   const [aviso, setAviso] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
+
+  const guardar = async (pin: string, biometria: boolean) => {
+    setGuardando(true);
+    await configurar(pin, biometria);
+    router.back();
+  };
 
   const crear = async (pin: string) => {
     if (pinDebil(pin)) return 'Elegí un PIN menos obvio (sin dígitos repetidos ni secuencias).';
@@ -32,26 +38,20 @@ export default function ConfigurarBloqueo() {
       return null;
     }
     if (biometriaDisponible) setPaso({ tipo: 'biometria', pin });
-    else await configurar(pin, false);
+    else await guardar(pin, false);
     return null;
-  };
-
-  const terminar = async (pin: string, biometria: boolean) => {
-    setGuardando(true);
-    await configurar(pin, biometria);
   };
 
   return (
     <ScrollView contentContainerStyle={e.contenido}>
       <View style={e.columna}>
-        <Logo ancho={180} />
         {paso.tipo === 'biometria' ? (
           <>
             <Text style={e.titulo}>¿Desbloquear con huella o rostro?</Text>
             <Text style={e.texto}>Podés usar la biometría del teléfono en lugar del PIN. El PIN sigue siendo el respaldo.</Text>
             <View style={{ gap: 12, alignSelf: 'stretch' }}>
-              <Boton texto="Activar" cargando={guardando} onPress={() => terminar(paso.pin, true)} />
-              <Boton texto="Ahora no" variante="secundario" deshabilitado={guardando} onPress={() => terminar(paso.pin, false)} />
+              <Boton texto="Activar" cargando={guardando} onPress={() => guardar(paso.pin, true)} />
+              <Boton texto="Ahora no" variante="secundario" deshabilitado={guardando} onPress={() => guardar(paso.pin, false)} />
             </View>
           </>
         ) : (
@@ -64,7 +64,7 @@ export default function ConfigurarBloqueo() {
             </Text>
             {aviso && <Text style={e.aviso}>{aviso}</Text>}
             <PanelPin alCompletar={paso.tipo === 'crear' ? crear : confirmar} reinicio={paso.tipo} />
-            <Boton texto="Cerrar sesión" variante="secundario" onPress={cerrarSesion} />
+            <Boton texto="Cancelar" variante="secundario" onPress={() => router.back()} />
           </>
         )}
       </View>

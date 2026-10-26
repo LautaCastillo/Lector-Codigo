@@ -24,7 +24,8 @@ export default function Perfil() {
     if (nombre.trim().length < 3) return setMsgNombre({ ok: false, texto: 'Ingresá tu nombre y apellido.' });
     setGuardando(true);
     try {
-      await actualizarNombre(nombre.trim());
+      if (!perfil) throw new Error('No se pudo identificar la cuenta.');
+      await actualizarNombre(perfil.id, nombre.trim());
       await recargarPerfil();
       setMsgNombre({ ok: true, texto: 'Datos guardados.' });
     } catch (error) {
