@@ -1,18 +1,22 @@
 # Estado del proyecto y cómo retomar
 
-Actualizado el 23/10/2026. Rama `lautaPC`. Hoja de ruta vigente: [`plan-de-mejora-login-auditoria-siu.md`](plan-de-mejora-login-auditoria-siu.md). Para levantar el proyecto en otra computadora: [`00-inicio/puesta-en-marcha.md`](00-inicio/puesta-en-marcha.md). Historia detallada: [`06-bitacora/`](06-bitacora/).
+Actualizado el 26/10/2026. Rama `lautaPC`. Hoja de ruta vigente: [`plan-v3-supabase-directo.md`](plan-v3-supabase-directo.md) (26/10/2026). Para levantar el proyecto en otra computadora: [`00-inicio/puesta-en-marcha.md`](00-inicio/puesta-en-marcha.md). Historia detallada: [`06-bitacora/`](06-bitacora/).
 
-## 1. Dónde estamos en el roadmap
+> **Nota del 26/10/2026.** Las secciones 1, 2, 4, 5, 6 y 7 se escribieron contra el plan anterior (ahora histórico) y se reescribirán al terminar la fase 0 del plan v3. La sección 3 ("Qué funciona hoy") describe el estado real del código, que el plan v3 migra por fases. La tabla de fases vigente está en la sección 11 del plan v3, con su estado: las fases 0 (ADR) y 1 (seguridad en la base, `supabase/`) están hechas el 26/10/2026; siguen la 2 (cuentas y sesión) y las demás.
 
-Fases de la sección 4.4 del plan.
+> **Fase 3 (26/10/2026):** toda la app habla directo con Supabase (catálogo, relevamientos, hallazgos con foto, exportación y actividad). El backend NestJS ya no se usa y está pendiente de retirar después de probar la app sin él.
+
+## 1. Dónde estamos en el roadmap (plan anterior)
+
+Fases de la sección 4.4 del plan anterior.
 
 | Fase | Contenido | Estado |
 |---|---|---|
 | 0. Cimientos | Estructura de `docs/`, ADR 0001 a 0006, consultas enviadas, CI con lint y pruebas | **En curso.** Hecho: estructura de `docs/` y lista de consultas. Falta: ADR, enviar las consultas, confirmar que el CI corre en GitHub |
 | 1. Seguridad | Autenticación propia, invitaciones, estados, roles, sesiones, `evento_auditoria` append-only, sin `x-relevador` ni `API_KEY` | **Parcial.** Ver la sección 2: la auditoría ya está; se decidió mantener Supabase Auth por ahora, aunque el plan recomienda reemplazarla |
 | 2. Núcleo sin conexión | `expo-sqlite`, catálogo local, cola de salida, `/sync` idempotente, conflictos, relojes | No iniciada |
-| 3. UX de campo | Escaneo mejorado, ficha, búsqueda, lotes, indicador de conexión, accesibilidad | No iniciada |
-| 4. Gestión | Alta y edición con historial, resolución de conflictos, exportaciones, pantalla de actividad | No iniciada |
+| 3. UX de campo | Escaneo mejorado, ficha, búsqueda, lotes, indicador de conexión, accesibilidad | **Parcial.** Hecho: escaneo mejorado, ficha, búsqueda y lotes por ubicación. Falta: indicador de conexión y pendientes (dependen de la fase 2) y accesibilidad |
+| 4. Gestión | Alta y edición con historial, resolución de conflictos, exportaciones, pantalla de actividad | **Parcial.** Hecho: exportación a CSV, hallazgos con vínculo al catálogo y pantalla de actividad. Falta: PDF, resolución de conflictos y vista por ubicación o relevador. La edición del catálogo no se hará: un alta es un hallazgo (ver `CLAUDE.md`) |
 | 5. Integración SIU | Puerto `FuentePatrimonio`, adaptadores de archivo y REST, caché | Parcial: existe el importador de Excel |
 | 6. Entrega | Runbook, traspaso, release Android, caso de estudio | No iniciada |
 
@@ -47,7 +51,7 @@ El plan (secciones 1.2 a 1.6) recomienda autenticación propia en NestJS, cuenta
 ## 3. Qué funciona hoy
 
 - **Backend** (NestJS, Prisma 7, Supabase): `/health`, `/configuracion/simbologias`, `POST /bienes/escaneo`, `GET /bienes/:numeroInventario`, `GET` y `PATCH /me`, y `/admin/usuarios` para aprobar, rechazar, suspender, reactivar, dar de baja y cambiar el rol.
-- **App** (Expo SDK 57): login, registro, cuenta pendiente, inicio, escáner, perfil editable, ajustes con modo claro y oscuro, menú lateral, pantalla de cuentas para administradores y bloqueo con PIN o biometría.
+- **App** (Expo SDK 58): login, registro, cuenta pendiente, inicio, escáner, perfil editable, ajustes con modo claro y oscuro, menú lateral, pantalla de cuentas para administradores y bloqueo con PIN o biometría.
 - **Catálogo:** 55 bienes de prueba importados desde un listado de SIU (`npm run importar -w backend`), que es el camino (c) del plan. El escaneo resuelve el número de inventario con distinto relleno de ceros.
 - **Bienes:** ficha completa (`GET /bienes/:numero`, acepta el número con o sin ceros), búsqueda manual (`GET /bienes?q=`, por número, número anterior, descripción, catálogo o ubicación) e historial (`GET /bienes/:numero/historial`, tomado de los registros de los triggers). En la app: ficha con secciones plegables e historial en línea de tiempo, búsqueda con espera al escribir, y escáner con resumen del bien, vibración, linterna, recuadro guía y descarte de lecturas repetidas durante 2 segundos.
 - **Lote por ubicación:** se elige una ubicación (`GET /ubicaciones`), se escanea en ráfaga contra lo que el catálogo ubica ahí (`GET /bienes?ubicacion=`) y al terminar se ve cuántos se encontraron, cuáles faltan, cuáles figuran en otra ubicación y cuáles no están en el catálogo. Lo esperado se compara en el teléfono (sin red); solo lo desconocido se consulta al servidor. El lote en curso se guarda en el teléfono y se puede continuar tras un bloqueo o reinicio. Al terminar, el resumen se puede compartir como texto y los relevamientos se envían al servidor (`POST /relevamientos`, idempotente por `idCliente`: reenviar no duplica; lo que quedó sin verificar no se envía hasta comprobarlo).
@@ -104,6 +108,6 @@ Ninguna está resuelta. Las preguntas concretas están en [`consultas-unsa.md`](
 2. Exportación a PDF y vista de administrador por ubicación o relevador. Acordar con Patrimonio la diferencia entre hallazgo "no identificado" y "nuevo", el tamaño y la cantidad de fotos y dónde guardarlas.
 3. Del plan, fase 3 (UX de campo): quedan el indicador de conexión y la pantalla de pendientes, que dependen del núcleo sin conexión. Falta el envío automático y sin conexión de los lotes (hoy se envían con un botón y requieren red): llega con el núcleo sin conexión, usando el mismo `POST /relevamientos`.
 4. ADR 0001 a 0006 en estado propuesto (criterio de salida de la fase 0), incluido el del rol de base de datos, que también define cómo se retiran UPDATE y DELETE al rol de la aplicación.
-5. Actualizar `CLAUDE.md` para que coincida con el plan.
+5. `CLAUDE.md`, `README.md`, `arquitectura.md` y `siu/README.md` quedaron alineados con el plan el 26/10/2026 (hecho).
 6. Pedir el aval a Patrimonio y enviar las consultas de [`consultas-unsa.md`](consultas-unsa.md).
 7. Núcleo sin conexión (fase 2): al llegar, sumar a la auditoría los relojes del dispositivo, la secuencia y las operaciones en cuarentena.

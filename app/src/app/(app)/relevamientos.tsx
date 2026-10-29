@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { ChipResultado, Seccion } from '../../components/bien';
 import { Boton } from '../../components/ui';
-import { misRelevamientos } from '../../lib/api';
+import { misRelevamientos, relevamientosDelEquipo } from '../../lib/api';
 import { fechaHora } from '../../lib/formato';
 import { radio, useEstilos, useTema, type Paleta } from '../../lib/tema';
 
@@ -33,10 +33,13 @@ function agrupar(lista: RelevamientoRegistradoDto[]): Grupo[] {
   return [...grupos.values()].sort((a, b) => b.cuando.localeCompare(a.cuando));
 }
 
+type Alcance = 'mios' | 'equipo';
+
 export default function MisRelevamientos() {
   const router = useRouter();
   const e = useEstilos(fabrica);
   const { c } = useTema();
+  const [alcance, setAlcance] = useState<Alcance>('mios');
   const [lista, setLista] = useState<RelevamientoRegistradoDto[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actualizando, setActualizando] = useState(false);
@@ -44,12 +47,13 @@ export default function MisRelevamientos() {
   const cargar = useCallback(async () => {
     setError(null);
     try {
-      setLista(await misRelevamientos());
+      setLista(alcance === 'mios' ? await misRelevamientos() : await relevamientosDelEquipo());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudieron cargar los relevamientos.');
     }
-  }, []);
+  }, [alcance]);
   useEffect(() => {
+    setLista(null);
     void cargar();
   }, [cargar]);
 
@@ -72,6 +76,19 @@ export default function MisRelevamientos() {
       }
     >
       <View style={e.columna}>
+        <View style={e.filtros}>
+          {([['mios', 'Míos'], ['equipo', 'Del equipo']] as const).map(([valor, titulo]) => (
+            <Pressable
+              key={valor}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: alcance === valor }}
+              onPress={() => setAlcance(valor)}
+              style={[e.filtro, alcance === valor && { backgroundColor: c.primario }]}
+            >
+              <Text style={[e.filtroTexto, alcance === valor && { color: c.sobrePrimario }]}>{titulo}</Text>
+            </Pressable>
+          ))}
+        </View>
         {error && (
           <View style={{ gap: 12 }}>
             <Text style={e.error}>{error}</Text>
@@ -81,12 +98,12 @@ export default function MisRelevamientos() {
         {!error && !lista && <ActivityIndicator size="large" color={c.accion} />}
         {lista && lista.length === 0 && (
           <View style={e.vacio}>
-            <Text style={e.vacioTitulo}>Todavía no registraste relevamientos</Text>
-            <Text style={e.suave}>Escaneá un lote por ubicación y enviá el resultado desde el resumen: queda registrado acá.</Text>
+            <Text style={e.vacioTitulo}>{alcance === 'mios' ? 'Todavía no registraste relevamientos' : 'Todavía no hay relevamientos'}</Text>
+            <Text style={e.suave}>{alcance === 'equipo' ? 'Nadie registró relevamientos todavía. ' : ''}Escaneá un lote por ubicación y enviá el resultado desde el resumen: queda registrado acá.</Text>
             <Boton texto="Hacer un lote" onPress={() => router.push('/lote')} />
           </View>
         )}
-        {lista && lista.length > 0 && <Text style={e.suave}>{lista.length} relevamiento{lista.length === 1 ? '' : 's'} registrado{lista.length === 1 ? '' : 's'} con tu cuenta.</Text>}
+        {lista && lista.length > 0 && <Text style={e.suave}>{lista.length} relevamiento{lista.length === 1 ? '' : 's'} registrado{lista.length === 1 ? '' : 's'} {alcance === 'mios' ? 'con tu cuenta' : 'por el equipo'}.</Text>}
 
         {grupos.map((g, i) => {
           const encontrados = g.items.filter((x) => x.resultado === 'encontrado').length;
@@ -122,6 +139,7 @@ export default function MisRelevamientos() {
                       </Text>
                     )}
                     <ChipResultado resultado={r.resultado} />
+                    {alcance === 'equipo' && <Text style={e.suave}>{r.propio ? 'Vos' : r.relevador}</Text>}
                   </View>
                   <Text style={e.flecha}>›</Text>
                 </Pressable>
@@ -141,6 +159,9 @@ const fabrica = (c: Paleta) => ({
   error: { fontSize: 15, color: c.error },
   vacio: { gap: 12, padding: 20, backgroundColor: c.superficie, borderRadius: radio, borderWidth: 1, borderColor: c.borde },
   vacioTitulo: { fontSize: 17, fontWeight: '800', color: c.titulo },
+  filtros: { flexDirection: 'row', gap: 8 },
+  filtro: { paddingVertical: 10, paddingHorizontal: 18, borderRadius: 20, borderWidth: 1, borderColor: c.borde, backgroundColor: c.superficie },
+  filtroTexto: { fontSize: 15, fontWeight: '600', color: c.texto },
   fila: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, borderTopWidth: 1, borderTopColor: c.borde },
   numero: { fontSize: 17, fontWeight: '800', color: c.titulo },
   flecha: { fontSize: 28, color: c.suave },

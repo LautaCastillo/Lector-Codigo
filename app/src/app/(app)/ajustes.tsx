@@ -1,5 +1,8 @@
 import Constants from 'expo-constants';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { Boton } from '../../components/ui';
+import { useBloqueo } from '../../lib/bloqueo';
 import { radio, useEstilos, useTema, type Paleta, type Preferencia } from '../../lib/tema';
 
 const OPCIONES: { valor: Preferencia; titulo: string; detalle: string }[] = [
@@ -11,6 +14,15 @@ const OPCIONES: { valor: Preferencia; titulo: string; detalle: string }[] = [
 export default function Ajustes() {
   const { preferencia, setPreferencia, c } = useTema();
   const e = useEstilos(fabrica);
+  const router = useRouter();
+  const { configurado, biometriaActiva, desactivar } = useBloqueo();
+
+  const confirmarDesactivar = () =>
+    Alert.alert('¿Desactivar el PIN?', 'La app dejará de pedir el PIN al abrirla.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Desactivar', style: 'destructive', onPress: () => void desactivar() },
+    ]);
+
   return (
     <ScrollView contentContainerStyle={e.contenido}>
       <View style={e.columna}>
@@ -34,6 +46,22 @@ export default function Ajustes() {
               </Pressable>
             );
           })}
+        </View>
+        <Text style={e.seccion}>Seguridad</Text>
+        <View style={[e.tarjeta, { padding: 16, gap: 12 }]}>
+          <View style={{ gap: 4 }}>
+            <Text style={e.titulo}>Bloqueo con PIN</Text>
+            <Text style={e.detalle}>
+              {configurado
+                ? `Activado${biometriaActiva ? ', con huella o rostro' : ''}. La app se bloquea al abrirla y tras 5 minutos en segundo plano.`
+                : 'Desactivado. Podés protegerla con un PIN de 6 dígitos (opcional).'}
+            </Text>
+          </View>
+          <Boton texto={configurado ? 'Cambiar PIN' : 'Activar PIN'} variante="secundario" onPress={() => router.push('/configurar-bloqueo')} />
+          {configurado && <Boton texto="Desactivar PIN" variante="peligro" onPress={confirmarDesactivar} />}
+          <Text style={e.detalle}>
+            La sesión queda abierta hasta que la cierres o un administrador suspenda tu cuenta.
+          </Text>
         </View>
         <Text style={e.seccion}>Acerca de</Text>
         <View style={[e.tarjeta, { padding: 16, gap: 4 }]}>

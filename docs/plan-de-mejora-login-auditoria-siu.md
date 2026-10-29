@@ -1,3 +1,5 @@
+> **Documento histórico.** Desde el 26/10/2026 la hoja de ruta vigente es [`plan-v3-supabase-directo.md`](plan-v3-supabase-directo.md). Este plan se conserva como referencia de investigación (login, auditoría, SIU, UX, Figma, documentación).
+
 # Plan de mejora de la app de relevamiento patrimonial de la UNSa: login, auditoría, integración con SIU-Diaguita, UX, Figma y documentación
 
 La recomendación central es separar la app de los proveedores externos. Conviene construir la autenticación propia en NestJS (JWT de acceso corto, refresh token rotativo y alta de cuentas solo por invitación de un administrador) detrás de una interfaz de proveedor de identidad. Del lado de SIU, el backend debería consumir los datos de Patrimonio a través de una interfaz de fuente de datos y priorizar la API REST oficial de SIU-Diaguita, que existe y está documentada por el SIU. El scraping de Toba debería pasar a ser el último recurso.

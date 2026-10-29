@@ -7,7 +7,7 @@ Cómo levantar el proyecto en una computadora nueva. Última verificación: 23/1
 - Node.js 24 o superior (las dependencias de Nest no son compatibles con 22.12). Si se usa otra versión en otros proyectos, instalar `nvm-windows`.
 - Git.
 - Un proyecto de Supabase (base de datos y autenticación) y sus credenciales.
-- Un celular Android con Expo Go compatible con SDK 57, en la misma red que la computadora.
+- Un celular Android con Expo Go compatible con SDK 58, en la misma red que la computadora.
 
 Docker ya no es necesario. El `docker-compose.yml` queda solo para pruebas del backend con `AUTH_PROVISORIA=true`, sin login real.
 
@@ -24,7 +24,7 @@ Docker ya no es necesario. El `docker-compose.yml` queda solo para pruebas del b
    - `DATABASE_URL`: cadena **Session pooler** de Supabase (botón Connect), con la contraseña real y sin corchetes.
    - `SUPABASE_URL`: URL del proyecto. Es obligatoria: sin ella el backend no arranca.
 3. Crear `app/.env` a partir de `app/.env.example` y completar:
-   - `EXPO_PUBLIC_API_URL`: IP de la computadora en la red local (el celular no puede usar `localhost`), por ejemplo `http://192.168.0.10:3000`.
+   - (`EXPO_PUBLIC_API_URL` ya no se usa: la app no necesita el backend.)
    - `EXPO_PUBLIC_SUPABASE_URL` y `EXPO_PUBLIC_SUPABASE_KEY`: URL y clave **publicable** del proyecto. Nunca la clave secreta.
 4. Compilar y preparar la base:
    ```bash
@@ -36,7 +36,7 @@ Docker ya no es necesario. El `docker-compose.yml` queda solo para pruebas del b
    ```sql
    UPDATE usuario SET estado = 'activa', rol = 'administrador' WHERE cuenta = '<correo>';
    ```
-6. Cargar el catálogo (opcional): exportar "Bienes de uso" desde SIU Diaguita y correr:
+6. Cargar el catálogo (opcional): exportar "Bienes de uso" desde SIU Diaguita y subirlo desde la app, como administrador, en el menú "Importar catálogo" (Excel o CSV). El importador de línea de comandos del backend, que sigue abajo, ya no hace falta:
    ```bash
    npm run importar -w backend -- ruta/al/listado.xls
    ```
@@ -46,7 +46,7 @@ Docker ya no es necesario. El `docker-compose.yml` queda solo para pruebas del b
    npm run start:dev -w backend
    npm run start -w @patrimonio/app
    ```
-   Escanear el código QR con Expo Go. Al primer ingreso la app pide crear un PIN de bloqueo.
+   Escanear el código QR con Expo Go. Para entrar hace falta una cuenta creada por un administrador (pantalla Cuentas, Nueva cuenta); en el primer ingreso la app pide elegir una contraseña propia. El PIN de bloqueo es opcional y se activa desde Ajustes.
 8. Ejecutar las pruebas:
    ```bash
    npm test

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { esSimbologia, type ResultadoEscaneoDto, type Simbologia } from '@patrimonio/shared';
+import { esSimbologia, SIMBOLOGIAS_POR_DEFECTO, type ResultadoEscaneoDto, type Simbologia } from '@patrimonio/shared';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
@@ -22,7 +22,8 @@ type Estado =
 export default function Escanear() {
   const router = useRouter();
   const [permiso, pedirPermiso] = useCameraPermissions();
-  const [simbologias, setSimbologias] = useState<Simbologia[] | null>(null);
+  // La cámara arranca con las simbologías por defecto; si el servidor responde con otra lista, se actualiza.
+  const [simbologias, setSimbologias] = useState<Simbologia[]>([...SIMBOLOGIAS_POR_DEFECTO]);
   const [estado, setEstado] = useState<Estado>({ tipo: 'listo' });
   const [linterna, setLinterna] = useState(false);
   const { c } = useTema();
@@ -83,15 +84,13 @@ export default function Escanear() {
   return (
     <View style={[e.contenedor, lateral && { flexDirection: 'row' }]}>
       <View style={{ flex: 1 }}>
-        {simbologias && (
-          <CameraView
-            style={StyleSheet.absoluteFill}
-            facing="back"
-            enableTorch={linterna}
-            barcodeScannerSettings={{ barcodeTypes: simbologias }}
-            onBarcodeScanned={estado.tipo === 'listo' ? alLeer : undefined}
-          />
-        )}
+        <CameraView
+          style={StyleSheet.absoluteFill}
+          facing="back"
+          enableTorch={linterna}
+          barcodeScannerSettings={{ barcodeTypes: simbologias }}
+          onBarcodeScanned={estado.tipo === 'listo' ? alLeer : undefined}
+        />
         <View style={e.guia} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
           <View style={[e.marco, estado.tipo !== 'listo' && { borderColor: estado.tipo === 'resultado' && estado.resultado.encontrado ? c.ok : c.suave }]} />
         </View>

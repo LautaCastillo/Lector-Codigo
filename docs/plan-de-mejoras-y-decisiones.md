@@ -1,3 +1,5 @@
+> **Documento histórico.** Desde el 26/10/2026 la hoja de ruta vigente es [`plan-v3-supabase-directo.md`](plan-v3-supabase-directo.md). Este documento se conserva como referencia.
+
 # Plan de mejoras y decisiones: Inventario Patrimonio UNSa
 
 Versión 2. Fecha: 23/10/2026.
@@ -15,7 +17,7 @@ Cada afirmación lleva una de estas marcas cuando importa su origen:
 - **[Recomendación]**: criterio propio, justificado en el texto.
 - **[Pendiente]**: depende de la UNSa o de una verificación que no se hizo. No se supone nada.
 
-Mientras `CLAUDE.md` no se actualice (sección 13), este documento prevalece sobre él en los puntos de la sección 1.
+`CLAUDE.md` se actualizó el 26/10/2026 con los puntos de la sección 13, así que ya no hay diferencia de precedencia con él. Este documento es un complemento del plan vigente (`plan-de-mejora-login-auditoria-siu.md`), que prevalece donde difieren.
 
 ## 1. Decisiones actualizadas
 

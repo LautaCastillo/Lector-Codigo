@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { esSimbologia, type Simbologia, type UbicacionDto } from '@patrimonio/shared';
+import { esSimbologia, SIMBOLOGIAS_POR_DEFECTO, type Simbologia, type UbicacionDto } from '@patrimonio/shared';
 import * as Crypto from 'expo-crypto';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
@@ -237,7 +237,7 @@ function Escanear({ lote, alCambiar, alTerminar }: { lote: Lote; alCambiar: (l: 
   const e = useEstilos(fabrica);
   const { c } = useTema();
   const [permiso, pedirPermiso] = useCameraPermissions();
-  const [simbologias, setSimbologias] = useState<Simbologia[] | null>(null);
+  const [simbologias, setSimbologias] = useState<Simbologia[]>([...SIMBOLOGIAS_POR_DEFECTO]);
   const [linterna, setLinterna] = useState(false);
   const [aviso, setAviso] = useState<Aviso | null>(null);
   const { width, height } = useWindowDimensions();
@@ -335,7 +335,7 @@ function Escanear({ lote, alCambiar, alTerminar }: { lote: Lote; alCambiar: (l: 
   return (
     <View style={[e.escaneo, lateral && { flexDirection: 'row' }]}>
       <View style={{ flex: 1 }}>
-        {simbologias && <CameraView style={StyleSheet.absoluteFill} facing="back" enableTorch={linterna} barcodeScannerSettings={{ barcodeTypes: simbologias }} onBarcodeScanned={alLeer} />}
+        <CameraView style={StyleSheet.absoluteFill} facing="back" enableTorch={linterna} barcodeScannerSettings={{ barcodeTypes: simbologias }} onBarcodeScanned={alLeer} />
         <View style={e.guia} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
           <View style={e.marco} />
         </View>
