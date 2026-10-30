@@ -125,6 +125,14 @@ export default function PantallaJornada() {
     Alert.alert(fila.descripcion ?? fila.numeroInventario, `${fila.numeroInventario}\n¿Qué querés hacer?`, [
       { text: 'Ver ficha', onPress: () => router.push({ pathname: '/bien/[numero]', params: { numero: fila.numeroInventario! } }) },
       {
+        text: 'Relevar con detalle',
+        onPress: () =>
+          router.push({
+            pathname: '/relevamiento/nuevo',
+            params: { numero: fila.numeroInventario!, jornadaId: id, ...(ubicacionActual ? { ubicacion: ubicacionActual } : {}) },
+          }),
+      },
+      {
         text: 'Marcar como encontrado',
         onPress: async () => {
           try {
@@ -136,8 +144,7 @@ export default function PantallaJornada() {
           }
         },
       },
-      { text: 'Cancelar', style: 'cancel' },
-    ]);
+    ], { cancelable: true }); // Android admite tres botones: se cancela tocando fuera del cuadro.
   };
 
   const confirmarCierre = () =>
@@ -213,6 +220,11 @@ export default function PantallaJornada() {
               </Pressable>
             </View>
           )}
+          <Boton
+            texto="Registrar hallazgo"
+            variante="secundario"
+            onPress={() => router.push({ pathname: '/hallazgo/nuevo', params: { jornadaId: id, ...(ubicacionActual ? { ubicacion: ubicacionActual } : {}) } })}
+          />
           {permiso && !permiso.granted && !permiso.canAskAgain && <Text style={e.error}>Sin permiso de cámara. Activalo en los ajustes del teléfono.</Text>}
         </View>
       )}

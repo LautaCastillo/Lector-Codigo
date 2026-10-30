@@ -33,17 +33,20 @@ export interface Lote {
   items: ItemLote[];
   /** `idCliente` de los ítems que el servidor ya confirmó. */
   enviados: string[];
+  /** Jornada a la que se suma el lote: sus relevamientos cuentan en el avance compartido. */
+  jornadaId?: string;
 }
 
 export type Resolucion = { estado: 'encontrado'; bien: BienDto } | { estado: 'no_encontrado' } | { estado: 'sin_verificar' };
 
-export const nuevoLote = (ubicacion: string, esperados: BienDto[], id: string, ahora = new Date()): Lote => ({
+export const nuevoLote = (ubicacion: string, esperados: BienDto[], id: string, ahora = new Date(), jornadaId?: string): Lote => ({
   id,
   ubicacion,
   iniciadoEn: ahora.toISOString(),
   esperados,
   items: [],
   enviados: [],
+  ...(jornadaId ? { jornadaId } : {}),
 });
 
 /** Busca una lectura entre los bienes esperados, sin red. Acepta el número con otro relleno de ceros. */
@@ -133,6 +136,7 @@ export function relevamientosPorEnviar(lote: Lote): RelevamientoDto[] {
     .map((i) => ({
       idCliente: i.idCliente,
       loteId: lote.id,
+      ...(lote.jornadaId ? { jornadaId: lote.jornadaId } : {}),
       resultado: i.estado === 'encontrado' ? 'encontrado' : 'no_encontrado',
       ...(i.bien ? { numeroInventario: i.bien.numeroInventario } : {}),
       simbologia: i.simbologia,

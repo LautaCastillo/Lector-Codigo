@@ -1,11 +1,12 @@
 // Primer paso del lote por ubicación: continuar el lote guardado o elegir una ubicación para empezar uno nuevo.
 import { Ionicons } from '@expo/vector-icons';
-import { type UbicacionDto } from '@patrimonio/shared';
+import { type BienDto, type UbicacionDto } from '@patrimonio/shared';
 import * as Crypto from 'expo-crypto';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, Text, TextInput, View } from 'react-native';
 import { Boton } from '../../compartido/ui';
 import { bienesDeUbicacion, listarUbicaciones } from '../../datos/catalogo';
+import { listarJornadas, type Jornada } from '../../datos/jornadas';
 import { fechaHora, mensajeDeError } from '../../compartido/formato';
 import { nuevoLote, type Lote } from './lote';
 import { useEstilos, useTema } from '../../compartido/tema';
@@ -48,10 +49,31 @@ export function ElegirUbicacion({
     return (ubicaciones ?? []).filter((u) => !q || u.nombre.toLowerCase().includes(q));
   }, [ubicaciones, filtro]);
 
+  /** Si hay una jornada abierta que abarca esta ubicación, se pregunta si el lote se suma a ella. */
+  const jornadaParaSumar = async (nombre: string, bienes: BienDto[]): Promise<string | undefined> => {
+    let abiertas: Jornada[];
+    try {
+      abiertas = await listarJornadas('abierta');
+    } catch {
+      return undefined; // sin conexión o sin permiso: el lote sigue siendo suelto
+    }
+    const areas = new Set(bienes.map((b) => b.areaResponsable));
+    const candidata =
+      abiertas.find((j) => j.tipo === 'ubicacion' && j.alcance === nombre) ?? abiertas.find((j) => j.tipo === 'area' && areas.has(j.alcance));
+    if (!candidata) return undefined;
+    return new Promise((resolver) =>
+      Alert.alert('Hay una jornada abierta', `${candidata.alcance} (${candidata.encontrados} de ${candidata.esperados}). ¿Sumás este lote a la jornada?`, [
+        { text: 'Sumar a la jornada', onPress: () => resolver(candidata.id) },
+        { text: 'Lote suelto', onPress: () => resolver(undefined) },
+      ], { cancelable: false }),
+    );
+  };
+
   const empezar = async (nombre: string) => {
     setIniciando(nombre);
     try {
-      alEmpezar(nuevoLote(nombre, await bienesDeUbicacion(nombre), Crypto.randomUUID()));
+      const bienes = await bienesDeUbicacion(nombre);
+      alEmpezar(nuevoLote(nombre, bienes, Crypto.randomUUID(), new Date(), await jornadaParaSumar(nombre, bienes)));
     } catch (err) {
       setError(mensajeDeError(err, 'No se pudo iniciar el lote.'));
       setIniciando(null);
@@ -75,7 +97,10 @@ export function ElegirUbicacion({
             <Text style={e.texto}>
               {guardado.ubicacion} · {guardado.items.length} escaneado{guardado.items.length === 1 ? '' : 's'} de {guardado.esperados.length} esperados
             </Text>
-            <Text style={e.suave}>Iniciado el {fechaHora(guardado.iniciadoEn)}</Text>
+            <Text style={e.suave}>
+              Iniciado el {fechaHora(guardado.iniciadoEn)}
+              {guardado.jornadaId ? ' · suma a una jornada' : ''}
+            </Text>
             <View style={e.fila}>
               <View style={{ flex: 1 }}>
                 <Boton texto="Continuar" onPress={alContinuar} />

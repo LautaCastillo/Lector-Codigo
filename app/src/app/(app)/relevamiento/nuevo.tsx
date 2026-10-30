@@ -18,7 +18,8 @@ type ModoUbicacion = 'catalogo' | 'otra';
 
 /** Registrar que se vio un bien, con su estado físico, la ubicación real y observaciones. */
 export default function RegistrarRelevamiento() {
-  const { numero, simbologia, leido } = useLocalSearchParams<{ numero: string; simbologia?: string; leido?: string }>();
+  // `jornadaId` y `ubicacion` llegan cuando se releva con detalle desde una jornada: queda dentro de ella y en esa ubicación.
+  const { numero, simbologia, leido, jornadaId, ubicacion: ubicacionInicial } = useLocalSearchParams<{ numero: string; simbologia?: string; leido?: string; jornadaId?: string; ubicacion?: string }>();
   const router = useRouter();
   const e = useEstilos(fabrica);
   const { c } = useTema();
@@ -39,9 +40,16 @@ export default function RegistrarRelevamiento() {
 
   useEffect(() => {
     obtenerBien(numero)
-      .then(setBien)
+      .then((b) => {
+        setBien(b);
+        // Desde una jornada, el bien se vio donde está la persona: si no es lo que dice el catálogo, se parte de ahí.
+        if (ubicacionInicial && ubicacionInicial !== b.ubicacionFisica) {
+          setModo('otra');
+          setOtra(ubicacionInicial);
+        }
+      })
       .catch((err) => setErrorCarga(mensajeDeError(err, 'No se pudo cargar el bien.')));
-  }, [numero]);
+  }, [numero, ubicacionInicial]);
 
   // Las ubicaciones del catálogo se piden solo si la persona dice que el bien está en otro lugar.
   useEffect(() => {
@@ -66,6 +74,7 @@ export default function RegistrarRelevamiento() {
       numeroInventario: bien.numeroInventario,
       ...(simbologia && esSimbologia(simbologia) ? { simbologia } : {}),
       ...(leido ? { valorLeido: leido } : {}),
+      ...(jornadaId ? { jornadaId } : {}),
       ...(ubicacionFinal ? { ubicacionObservada: ubicacionFinal } : {}),
       ...(estado ? { estadoDetectado: estado } : {}),
       ...(observaciones.trim() ? { observaciones: observaciones.trim() } : {}),
@@ -112,9 +121,15 @@ export default function RegistrarRelevamiento() {
           {ubicacionFinal ? `\n${ubicacionFinal}` : ''}
         </Text>
         <View style={{ gap: 12, alignSelf: 'stretch', maxWidth: 420, width: '100%' }}>
-          <Boton texto="Escanear otro bien" onPress={() => router.replace('/escanear')} />
-          <Boton texto="Volver a la ficha" variante="secundario" onPress={() => router.back()} />
-          <Boton texto="Ver mis relevamientos" variante="secundario" onPress={() => router.replace('/relevamientos')} />
+          {jornadaId ? (
+            <Boton texto="Volver a la jornada" onPress={() => router.replace({ pathname: '/jornada/[id]', params: { id: jornadaId } })} />
+          ) : (
+            <>
+              <Boton texto="Escanear otro bien" onPress={() => router.replace('/escanear')} />
+              <Boton texto="Volver a la ficha" variante="secundario" onPress={() => router.back()} />
+              <Boton texto="Ver mis relevamientos" variante="secundario" onPress={() => router.replace('/relevamientos')} />
+            </>
+          )}
         </View>
       </View>
     );

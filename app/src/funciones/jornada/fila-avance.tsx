@@ -13,7 +13,7 @@ export function FilaDeAvance({ item, yo, marcable, alTocar }: { item: FilaAvance
   return (
     <Pressable accessibilityRole="button" onPress={alTocar} style={({ pressed }) => [e.fila, pressed && { opacity: 0.85 }]}>
       <View style={{ flex: 1, gap: 3 }}>
-        <Text style={e.numero}>{item.numeroInventario ?? 'Sin número'}</Text>
+        <Text style={e.numero}>{item.numeroInventario ?? item.codigoProvisorio ?? 'Sin número'}</Text>
         <Text style={e.descripcion} numberOfLines={2}>
           {item.descripcion ?? 'Sin descripción'}
         </Text>
@@ -32,7 +32,8 @@ export function FilaDeAvance({ item, yo, marcable, alTocar }: { item: FilaAvance
           </Text>
         )}
         {item.tipo === 'extra' && item.areaResponsable && <Text style={e.alerta}>Pertenece a {item.areaResponsable}</Text>}
-        {item.tipo === 'extra' && !item.bienId && <Text style={e.alerta}>No figura en el catálogo</Text>}
+        {item.resultado === 'hallazgo' && <Text style={e.alerta}>Hallazgo: se registró durante esta jornada</Text>}
+        {item.tipo === 'extra' && !item.bienId && item.resultado !== 'hallazgo' && <Text style={e.alerta}>No figura en el catálogo</Text>}
       </View>
       {marcable && <Ionicons name="checkmark-circle-outline" size={24} color={c.suave} />}
     </Pressable>

@@ -41,6 +41,8 @@ export interface FilaAvance {
   tambienVieron: string[];
   /** Las lecturas del bien no coinciden (otro resultado u otra ubicación): conviene revisarlo. */
   discrepancia: boolean;
+  /** Código provisorio (H-XXXXXXXX) si la fila es un hallazgo registrado durante la jornada. */
+  codigoProvisorio: string | null;
 }
 
 /** Las jornadas, de la más reciente a la más antigua, con su avance. */

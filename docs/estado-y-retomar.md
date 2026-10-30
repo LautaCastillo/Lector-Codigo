@@ -19,11 +19,11 @@ Actualizado el 30/10/2026. Rama `lautaPC`. Hoja de ruta vigente: [`plan-v3-supab
 - **Cuentas:** las crea un administrador (Edge Function `admin-cuentas`); contraseña temporal con cambio obligatorio; estados `activa`, `suspendida` y `baja`; sesión sin caducidad; PIN y biometría opcionales.
 - **Catálogo:** importación desde la app (vista previa, solo columnas presentes, varias áreas), historial de cargas visible para todos, búsqueda, ficha con responsable y "Explorar bienes" por área, responsable y ubicación.
 - **Relevamientos:** escaneo con varias simbologías, relevamiento individual, lote por ubicación, hallazgos con foto, "Mis relevamientos" y "Del equipo".
-- **Jornadas por área o ubicación:** compartidas en tiempo real; un bien visto en otra ubicación del área cuenta con aviso; si dos personas leen el mismo bien figura la primera según la hora del servidor, con "también lo vio" y marca de discrepancia.
+- **Jornadas por área o ubicación:** compartidas en tiempo real; un bien visto en otra ubicación del área cuenta con aviso; si dos personas leen el mismo bien figura la primera según la hora del servidor, con "también lo vio" y marca de discrepancia; desde la jornada se puede registrar un hallazgo, que queda dentro de ella (en "Otros", con su código provisorio), relevar con detalle (estado y observaciones) un bien pendiente, y sumar un lote por ubicación a la jornada abierta que lo abarque.
 - **Navegación (30/10/2026):** inicio y menú lateral agrupados por tarea (Relevar, Consultar, Informes, Administración), definidos en `app/src/compartido/navegacion.ts`; el inicio muestra "Escanear" grande y las jornadas abiertas con su avance; el menú marca cuántas jornadas hay abiertas y pliega Administración; los historiales de cargas y de exportaciones están en una sola pantalla con dos pestañas ("Historiales").
 - **Exportación a CSV** con constancia (filtros, filas, huella SHA-256) e historial de exportaciones visible para todos. PDF pendiente.
 - **Auditoría** append-only y pantalla "Actividad" para administradores.
-- **Pruebas:** 29 unitarias en `shared` y 27 en `app` (`funciones/lote/lote.spec.ts`); scripts SQL por rol en `supabase/tests/` (todas deben dar `true`); la app se probó en teléfonos reales con Expo Go.
+- **Pruebas:** 29 unitarias en `shared` y 29 en `app` (`funciones/lote/lote.spec.ts`); scripts SQL por rol en `supabase/tests/` (todas deben dar `true`); la app se probó en teléfonos reales con Expo Go.
 
 ## 3. Pendientes del autor
 
@@ -35,7 +35,6 @@ Actualizado el 30/10/2026. Rama `lautaPC`. Hoja de ruta vigente: [`plan-v3-supab
 ## 4. Pendientes de desarrollo
 
 - Fase 6: cierre. Hecho: backend retirado, limpieza de la app y reorganización de `app/src/` (ver `docs/01-arquitectura/arquitectura.md`). Falta una prueba completa en el teléfono y el commit.
-- Relevamientos individuales y lotes asociados a una jornada.
 - Decidir si hacen falta tablas propias de áreas, ubicaciones y empleados (maestros de Diaguita: "Ubicaciones físicas" y "Áreas").
 - Marcar los bienes que dejan de figurar en un listado nuevo.
 - Confirmar con Patrimonio quién abre y cierra jornadas.
