@@ -1,0 +1,45 @@
+// Estilos de las pantallas del lote por ubicación (elegir, escanear y resumen).
+import { comunes } from '../../compartido/estilos';
+import { radio, type Paleta } from '../../compartido/tema';
+
+export const fabricaLote = (c: Paleta) => ({
+  ...comunes(c),
+  centro: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16, backgroundColor: c.fondo },
+  columna: { width: '100%', maxWidth: 720, padding: 20, gap: 12 },
+  titulo: { fontSize: 20, fontWeight: '800', color: c.titulo },
+  texto: { fontSize: 16, color: c.texto },
+  suave: { fontSize: 14, color: c.suave },
+  fila: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  envio: { backgroundColor: c.superficie, borderRadius: radio, padding: 16, gap: 8, borderWidth: 1, borderColor: c.borde },
+  exito: { fontSize: 15, color: c.ok },
+  enCurso: { backgroundColor: c.superficie, borderRadius: radio, padding: 16, gap: 8, borderWidth: 1.5, borderColor: c.accion },
+  enCursoTitulo: { fontSize: 16, fontWeight: '800', color: c.titulo },
+  lista: { width: '100%', maxWidth: 720, alignSelf: 'center', paddingHorizontal: 20, paddingBottom: 24, gap: 10 },
+  ubicacion: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, padding: 14, backgroundColor: c.superficie, borderRadius: radio, borderWidth: 1, borderColor: c.borde },
+  ubicacionNombre: { flex: 1, fontSize: 15, fontWeight: '600', color: c.texto },
+  cantidad: { fontSize: 20, fontWeight: '800', color: c.titulo },
+
+  escaneo: { flex: 1, backgroundColor: '#000000' },
+  guia: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, alignItems: 'center', justifyContent: 'center' },
+  marco: { width: '78%', maxWidth: 360, aspectRatio: 1.8, borderRadius: 16, borderWidth: 3, borderColor: 'rgba(255,255,255,0.9)' },
+  contador: { position: 'absolute', top: 16, left: 16, paddingHorizontal: 14, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)' },
+  contadorTexto: { color: '#FFFFFF', fontSize: 20, fontWeight: '800' },
+  linterna: { position: 'absolute', top: 16, right: 16, width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.55)' },
+  aviso: { position: 'absolute', left: 16, right: 16, bottom: 16, padding: 12, borderRadius: radio },
+  avisoTexto: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  panelLote: { backgroundColor: c.superficie, padding: 16, gap: 10 },
+  panelCabecera: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  panelTitulo: { fontSize: 16, fontWeight: '800', color: c.titulo },
+  item: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: c.borde },
+  itemNumero: { fontSize: 16, fontWeight: '800', color: c.titulo },
+  etiquetasFila: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  etiqueta: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, alignSelf: 'flex-start' },
+  etiquetaTexto: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  quitar: { padding: 6 },
+
+  resumenContenido: { alignItems: 'center', paddingBottom: 32 },
+  tarjetas: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  cifra: { flexGrow: 1, flexBasis: '45%', backgroundColor: c.superficie, borderRadius: radio, padding: 14, borderWidth: 1, borderColor: c.borde, gap: 2 },
+  cifraValor: { fontSize: 28, fontWeight: '800' },
+  faltante: { gap: 2, paddingVertical: 2 },
+});

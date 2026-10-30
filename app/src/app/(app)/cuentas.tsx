@@ -1,13 +1,15 @@
 import type { CuentaDto, EstadoCuenta, Rol } from '@patrimonio/shared';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { Credenciales } from '../../components/credenciales';
-import { Boton } from '../../components/ui';
-import { cambiarEstadoCuenta, cambiarRolCuenta, listarCuentas, restablecerClave, type AccionCuenta } from '../../lib/api';
-import { nombreDeCuenta } from '../../lib/formato';
-import { useSesion } from '../../lib/sesion';
-import { radio, useEstilos, useTema, type Paleta } from '../../lib/tema';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { ScrollView, Text, TextInput, View } from 'react-native';
+import { Credenciales } from '../../sesion/credenciales';
+import { Boton, EstadoCarga, Opciones } from '../../compartido/ui';
+import { type AccionCuenta, cambiarEstadoCuenta, cambiarRolCuenta, listarCuentas, restablecerClave } from '../../datos/cuentas';
+import { mensajeDeError, nombreDeCuenta } from '../../compartido/formato';
+import { useSesion } from '../../sesion/sesion';
+import { radio, useEstilos, useTema, type Paleta } from '../../compartido/tema';
+import { comunes } from '../../compartido/estilos';
+import { useCarga } from '../../compartido/useCarga';
 
 type Filtro = 'activas' | 'todas';
 const FILTROS: { valor: Filtro; titulo: string }[] = [
@@ -51,29 +53,12 @@ const ACCIONES: Record<EstadoCuenta, Accion[]> = {
 
 export default function Cuentas() {
   const e = useEstilos(fabrica);
-  const { c } = useTema();
   const router = useRouter();
   const { perfil } = useSesion();
   const [filtro, setFiltro] = useState<Filtro>('activas');
-  const [cuentas, setCuentas] = useState<CuentaDto[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const cargar = useCallback(async () => {
-    setError(null);
-    try {
-      setCuentas(await listarCuentas());
-    } catch (err) {
-      setCuentas(null);
-      setError(err instanceof Error ? err.message : 'No se pudo cargar la lista.');
-    }
-  }, []);
 
   // Se actualiza cada vez que la pantalla vuelve a verse (por ejemplo, al volver de "Nueva cuenta").
-  useFocusEffect(
-    useCallback(() => {
-      void cargar();
-    }, [cargar]),
-  );
+  const { datos: cuentas, error, cargar } = useCarga(() => listarCuentas(), [], 'No se pudo cargar la lista.', { alEnfocar: true });
 
   const visibles = cuentas?.filter((cuenta) => filtro === 'todas' || cuenta.estado === 'activa');
 
@@ -81,27 +66,9 @@ export default function Cuentas() {
     <ScrollView contentContainerStyle={e.contenido}>
       <View style={e.columna}>
         <Boton texto="Nueva cuenta" onPress={() => router.push('/cuenta-nueva')} />
-        <View style={e.filtros}>
-          {FILTROS.map((f) => (
-            <Pressable
-              key={f.valor}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: filtro === f.valor }}
-              onPress={() => setFiltro(f.valor)}
-              style={[e.filtro, filtro === f.valor && { backgroundColor: c.primario }]}
-            >
-              <Text style={[e.filtroTexto, filtro === f.valor && { color: c.sobrePrimario }]}>{f.titulo}</Text>
-            </Pressable>
-          ))}
-        </View>
+        <Opciones opciones={FILTROS.map((f) => ({ clave: f.valor, titulo: f.titulo }))} actual={filtro} alElegir={setFiltro} />
 
-        {error && (
-          <View style={{ gap: 12 }}>
-            <Text style={e.error}>{error}</Text>
-            <Boton texto="Reintentar" variante="secundario" onPress={cargar} />
-          </View>
-        )}
-        {!error && !cuentas && <ActivityIndicator size="large" color={c.accion} />}
+        <EstadoCarga error={error} cargando={!cuentas} alReintentar={cargar} grande />
         {visibles?.length === 0 && <Text style={e.vacio}>No hay cuentas.</Text>}
         {visibles?.map((cuenta) => (
           <TarjetaCuenta key={cuenta.id} cuenta={cuenta} propia={cuenta.id === perfil?.id} alCambiar={cargar} />
@@ -147,7 +114,7 @@ function TarjetaCuenta({ cuenta, propia, alCambiar }: { cuenta: CuentaDto; propi
         await alCambiar();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo completar la acción.');
+      setError(mensajeDeError(err, 'No se pudo completar la acción.'));
     }
     setTrabajando(false);
   };
@@ -232,11 +199,9 @@ function TarjetaCuenta({ cuenta, propia, alCambiar }: { cuenta: CuentaDto; propi
 }
 
 const fabrica = (c: Paleta) => ({
+  ...comunes(c),
   contenido: { padding: 20, alignItems: 'center' },
   columna: { width: '100%', maxWidth: 640, gap: 14 },
-  filtros: { flexDirection: 'row', gap: 8 },
-  filtro: { paddingVertical: 10, paddingHorizontal: 18, borderRadius: 20, borderWidth: 1, borderColor: c.borde, backgroundColor: c.superficie },
-  filtroTexto: { fontSize: 15, fontWeight: '600', color: c.texto },
   tarjeta: { backgroundColor: c.superficie, borderRadius: radio, padding: 16, gap: 10, borderWidth: 1, borderColor: c.borde },
   fila: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   nombre: { fontSize: 17, fontWeight: '700', color: c.texto },
@@ -245,5 +210,4 @@ const fabrica = (c: Paleta) => ({
   chipTexto: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
   campo: { minHeight: 48, borderWidth: 1.5, borderColor: c.borde, borderRadius: radio, paddingHorizontal: 14, fontSize: 16, color: c.texto, backgroundColor: c.fondo },
   vacio: { fontSize: 16, color: c.suave, textAlign: 'center', paddingVertical: 24 },
-  error: { fontSize: 15, color: c.error },
 });

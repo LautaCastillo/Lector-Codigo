@@ -14,11 +14,14 @@ import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { Boton } from '../../../components/ui';
-import { listarUbicaciones, subirFotoDeHallazgo, subirRelevamientos } from '../../../lib/api';
-import { EXPLICACION_CLASE, ETIQUETA_CLASE } from '../../../lib/formato';
-import { sacarFoto, type FotoLista } from '../../../lib/foto';
-import { radio, useEstilos, useTema, type Paleta } from '../../../lib/tema';
+import { Boton, Opciones } from '../../../compartido/ui';
+import { listarUbicaciones } from '../../../datos/catalogo';
+import { subirFotoDeHallazgo } from '../../../datos/hallazgos';
+import { subirRelevamientos } from '../../../datos/relevamientos';
+import { ETIQUETA_CLASE, EXPLICACION_CLASE, mensajeDeError } from '../../../compartido/formato';
+import { sacarFoto, type FotoLista } from '../../../funciones/hallazgo/foto';
+import { radio, useEstilos, useTema, type Paleta } from '../../../compartido/tema';
+import { comunes } from '../../../compartido/estilos';
 
 const MAX_DESCRIPCION = 300;
 const MAX_OBSERVACIONES = 500;
@@ -109,7 +112,7 @@ export default function RegistrarHallazgo() {
       }
     } catch (err) {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      setError(err instanceof Error ? err.message : 'No se pudo registrar. Revisá la conexión y reintentá.');
+      setError(mensajeDeError(err, 'No se pudo registrar. Revisá la conexión y reintentá.'));
     }
     setEnviando(false);
   };
@@ -189,13 +192,13 @@ export default function RegistrarHallazgo() {
           ))}
 
           <Text style={e.titulo}>Estado físico</Text>
-          <View style={e.chips}>
-            {[null, ...ESTADOS_OBSERVABLES].map((op) => (
-              <Pressable key={op ?? 'ninguno'} accessibilityRole="radio" accessibilityState={{ selected: estado === op }} onPress={() => setEstado(op)} style={[e.chip, estado === op && { backgroundColor: c.primario, borderColor: c.primario }]}>
-                <Text style={[e.chipTexto, estado === op && { color: c.sobrePrimario }]}>{op ?? 'Sin declarar'}</Text>
-              </Pressable>
-            ))}
-          </View>
+          <Opciones
+            rol="radio"
+            tamano="grande"
+            opciones={[null, ...ESTADOS_OBSERVABLES].map((op) => ({ clave: op ?? '', titulo: op ?? 'Sin declarar' }))}
+            actual={estado ?? ''}
+            alElegir={(v) => setEstado(v || null)}
+          />
 
           <Text style={e.titulo}>Foto (opcional)</Text>
           {foto ? (
@@ -236,6 +239,7 @@ export default function RegistrarHallazgo() {
 }
 
 const fabrica = (c: Paleta) => ({
+  ...comunes(c),
   contenido: { padding: 20, alignItems: 'center' },
   columna: { width: '100%', maxWidth: 640, gap: 12 },
   centroScroll: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: c.fondo },
@@ -245,7 +249,6 @@ const fabrica = (c: Paleta) => ({
   codigo: { fontSize: 34, fontWeight: '800', color: c.titulo, letterSpacing: 2 },
   suave: { fontSize: 14, color: c.suave },
   suaveCentro: { fontSize: 15, color: c.suave, textAlign: 'center' },
-  error: { fontSize: 15, color: c.error },
   fila: { flexDirection: 'row', gap: 10 },
   contador: { fontSize: 12, color: c.suave, textAlign: 'right' },
   alerta: { alignSelf: 'stretch', gap: 10, padding: 14, borderRadius: radio, borderWidth: 2, borderColor: c.error, backgroundColor: c.superficie },
@@ -257,9 +260,6 @@ const fabrica = (c: Paleta) => ({
   campo: { minHeight: 52, borderWidth: 1.5, borderColor: c.borde, borderRadius: radio, paddingHorizontal: 14, fontSize: 16, color: c.texto, backgroundColor: c.superficie },
   sugerida: { padding: 12, borderRadius: radio, borderWidth: 1, borderColor: c.borde, backgroundColor: c.superficie, minHeight: 48, justifyContent: 'center' },
   sugeridaTexto: { fontSize: 14, color: c.texto },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { minHeight: 48, paddingHorizontal: 18, borderRadius: 24, borderWidth: 1.5, borderColor: c.borde, backgroundColor: c.superficie, alignItems: 'center', justifyContent: 'center' },
-  chipTexto: { fontSize: 15, fontWeight: '600', color: c.texto },
   fotoCaja: { gap: 8, padding: 12, borderRadius: radio, borderWidth: 1, borderColor: c.borde, backgroundColor: c.superficie },
   foto: { width: '100%', aspectRatio: 4 / 3, borderRadius: 8, backgroundColor: c.celeste },
 });

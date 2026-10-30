@@ -1,10 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, TextInput, View } from 'react-native';
-import { Boton } from '../../components/ui';
-import { listarAreas, listarResponsables, listarUbicaciones, type Agrupacion, type CampoAgrupacion } from '../../lib/api';
-import { radio, useEstilos, useTema, type Paleta } from '../../lib/tema';
+import { useEffect, useMemo, useState } from 'react';
+import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
+import { EstadoCarga, Opciones } from '../../compartido/ui';
+import { type CampoAgrupacion, listarAreas, listarResponsables, listarUbicaciones } from '../../datos/catalogo';
+import { radio, useEstilos, useTema, type Paleta } from '../../compartido/tema';
+import { sinAcentos } from '../../compartido/formato';
+import { comunes } from '../../compartido/estilos';
+import { useCarga } from '../../compartido/useCarga';
 
 type Vista = 'areas' | 'responsables' | 'ubicaciones';
 
@@ -14,7 +17,6 @@ const VISTAS: { valor: Vista; titulo: string; campo: CampoAgrupacion; vacio: str
   { valor: 'ubicaciones', titulo: 'Ubicaciones', campo: 'ubicacionFisica', vacio: 'Todavía no hay ubicaciones: importá un listado de SIU.', busqueda: 'Buscar una ubicación' },
 ];
 
-const sinAcentos = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 /** Los bienes del catálogo agrupados por área responsable, por responsable de uso o por ubicación física. */
 export default function Explorar() {
@@ -23,28 +25,19 @@ export default function Explorar() {
   const { c } = useTema();
   const [vista, setVista] = useState<Vista>('areas');
   const [filtro, setFiltro] = useState('');
-  const [lista, setLista] = useState<Agrupacion[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [actualizando, setActualizando] = useState(false);
   const actual = VISTAS.find((v) => v.valor === vista) ?? VISTAS[0]!;
 
-  const cargar = useCallback(async () => {
-    setError(null);
-    try {
-      if (vista === 'areas') setLista(await listarAreas());
-      else if (vista === 'responsables') setLista(await listarResponsables());
-      else setLista((await listarUbicaciones()).map((u) => ({ nombre: u.nombre, cantidad: u.cantidad, detalle: '' })));
-    } catch (err) {
-      setLista(null);
-      setError(err instanceof Error ? err.message : 'No se pudo cargar la lista.');
-    }
-  }, [vista]);
-
-  useEffect(() => {
-    setLista(null);
-    setFiltro('');
-    void cargar();
-  }, [cargar]);
+  const { datos: lista, error, cargar, controlRecarga } = useCarga(
+    async () =>
+      vista === 'areas'
+        ? listarAreas()
+        : vista === 'responsables'
+          ? listarResponsables()
+          : (await listarUbicaciones()).map((u) => ({ nombre: u.nombre, cantidad: u.cantidad, detalle: '' })),
+    [vista],
+    'No se pudo cargar la lista.',
+  );
+  useEffect(() => setFiltro(''), [vista]);
 
   const visibles = useMemo(() => {
     const q = sinAcentos(filtro.trim());
@@ -54,27 +47,15 @@ export default function Explorar() {
   return (
     <View style={e.contenedor}>
       <View style={e.columna}>
-        <View style={e.pestanas}>
-          {VISTAS.map((v) => (
-            <Pressable
-              key={v.valor}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: vista === v.valor }}
-              onPress={() => setVista(v.valor)}
-              style={[e.pestana, vista === v.valor && { backgroundColor: c.primario }]}
-            >
-              <Text style={[e.pestanaTexto, vista === v.valor && { color: c.sobrePrimario }]}>{v.titulo}</Text>
-            </Pressable>
-          ))}
-        </View>
-        <View style={e.campo}>
+        <Opciones opciones={VISTAS.map((v) => ({ clave: v.valor, titulo: v.titulo }))} actual={vista} alElegir={setVista} />
+        <View style={e.campoBusqueda}>
           <Ionicons name="search-outline" size={22} color={c.suave} />
           <TextInput
             value={filtro}
             onChangeText={setFiltro}
             placeholder={actual.busqueda}
             placeholderTextColor={c.suave}
-            style={e.entrada}
+            style={e.entradaBusqueda}
             autoCorrect={false}
             accessibilityLabel={actual.busqueda}
           />
@@ -84,13 +65,7 @@ export default function Explorar() {
             </Pressable>
           )}
         </View>
-        {error && (
-          <View style={{ gap: 10 }}>
-            <Text style={e.error}>{error}</Text>
-            <Boton texto="Reintentar" variante="secundario" onPress={cargar} />
-          </View>
-        )}
-        {!error && !lista && <ActivityIndicator color={c.accion} />}
+        <EstadoCarga error={error} cargando={!lista} alReintentar={cargar} />
         {lista && lista.length === 0 && <Text style={e.ayuda}>{actual.vacio}</Text>}
         {lista && lista.length > 0 && (
           <Text style={e.ayuda}>
@@ -104,17 +79,7 @@ export default function Explorar() {
         keyExtractor={(g) => g.nombre}
         style={e.listaExterna}
         contentContainerStyle={e.lista}
-        refreshControl={
-          <RefreshControl
-            refreshing={actualizando}
-            onRefresh={async () => {
-              setActualizando(true);
-              await cargar();
-              setActualizando(false);
-            }}
-            tintColor={c.accion}
-          />
-        }
+        refreshControl={controlRecarga}
         renderItem={({ item }) => (
           <Pressable
             accessibilityRole="button"
@@ -140,17 +105,7 @@ export default function Explorar() {
 }
 
 const fabrica = (c: Paleta) => ({
-  contenedor: { flex: 1, alignItems: 'center' },
-  columna: { width: '100%', maxWidth: 720, paddingHorizontal: 20, paddingTop: 20, gap: 10 },
-  pestanas: { flexDirection: 'row', gap: 8 },
-  pestana: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1, borderColor: c.borde, backgroundColor: c.superficie },
-  pestanaTexto: { fontSize: 15, fontWeight: '600', color: c.texto },
-  campo: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 52, paddingHorizontal: 14, borderRadius: radio, borderWidth: 1.5, borderColor: c.borde, backgroundColor: c.superficie },
-  entrada: { flex: 1, fontSize: 16, color: c.texto, minHeight: 48 },
-  ayuda: { fontSize: 14, color: c.suave },
-  error: { fontSize: 15, color: c.error },
-  listaExterna: { width: '100%' },
-  lista: { width: '100%', maxWidth: 720, alignSelf: 'center', padding: 20, gap: 12 },
+  ...comunes(c),
   tarjeta: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.superficie, borderRadius: radio, padding: 14, borderWidth: 1, borderColor: c.borde },
   nombre: { fontSize: 16, fontWeight: '700', color: c.titulo },
   cantidad: { alignItems: 'center', minWidth: 56 },

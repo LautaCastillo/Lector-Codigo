@@ -2,13 +2,17 @@ import type { BienDto, RelevamientoRegistradoDto } from '@patrimonio/shared';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, RefreshControl, ScrollView, Text, TextInput, View, Pressable } from 'react-native';
-import { ChipResultado, Dato, Etiquetas, Seccion } from '../../../components/bien';
-import { Boton } from '../../../components/ui';
-import { buscarBienes, ErrorApi, fotoDeRelevamiento, obtenerRelevamiento, vincularHallazgo } from '../../../lib/api';
-import { EXPLICACION_CLASE, EXPLICACION_RESULTADO, ETIQUETA_CLASE, fechaHora } from '../../../lib/formato';
-import { useSesion } from '../../../lib/sesion';
-import { radio, useEstilos, useTema, type Paleta } from '../../../lib/tema';
+import { ChipResultado, Dato, Etiquetas, Seccion } from '../../../compartido/bien';
+import { Boton } from '../../../compartido/ui';
+import { buscarBienes } from '../../../datos/catalogo';
+import { fotoDeRelevamiento, vincularHallazgo } from '../../../datos/hallazgos';
+import { obtenerRelevamiento } from '../../../datos/relevamientos';
+import { ErrorApi } from '../../../datos/util';
+import { ETIQUETA_CLASE, EXPLICACION_CLASE, EXPLICACION_RESULTADO, fechaHora, mensajeDeError } from '../../../compartido/formato';
+import { useSesion } from '../../../sesion/sesion';
+import { radio, useEstilos, useTema, type Paleta } from '../../../compartido/tema';
 
+/** Detalle de un relevamiento: qué se leyó, a qué bien corresponde y cómo difiere del catálogo; el administrador vincula hallazgos. */
 export default function DetalleRelevamiento() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -211,7 +215,7 @@ function Vinculador({ relevamientoId, alVincular }: { relevamientoId: string; al
           try {
             alVincular(await vincularHallazgo(relevamientoId, elegido.numeroInventario, motivo.trim()));
           } catch (err) {
-            setError(err instanceof Error ? err.message : 'No se pudo vincular.');
+            setError(mensajeDeError(err, 'No se pudo vincular.'));
           }
           setTrabajando(false);
         },

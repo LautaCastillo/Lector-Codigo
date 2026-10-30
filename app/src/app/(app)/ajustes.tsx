@@ -1,9 +1,9 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
-import { Boton } from '../../components/ui';
-import { useBloqueo } from '../../lib/bloqueo';
-import { radio, useEstilos, useTema, type Paleta, type Preferencia } from '../../lib/tema';
+import { Boton } from '../../compartido/ui';
+import { useBloqueo } from '../../sesion/bloqueo';
+import { radio, useEstilos, useTema, type Paleta, type Preferencia } from '../../compartido/tema';
 
 const OPCIONES: { valor: Preferencia; titulo: string; detalle: string }[] = [
   { valor: 'sistema', titulo: 'Automático', detalle: 'Sigue el modo del celular' },
@@ -11,6 +11,7 @@ const OPCIONES: { valor: Preferencia; titulo: string; detalle: string }[] = [
   { valor: 'oscuro', titulo: 'Oscuro', detalle: 'Descansa la vista y ahorra batería' },
 ];
 
+/** Modo claro u oscuro, PIN de bloqueo opcional y cierre de sesión. */
 export default function Ajustes() {
   const { preferencia, setPreferencia, c } = useTema();
   const e = useEstilos(fabrica);

@@ -3,14 +3,17 @@ import type { BienDto } from '@patrimonio/shared';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from 'react-native';
-import { Etiquetas } from '../../components/bien';
-import { Boton } from '../../components/ui';
-import { buscarBienes } from '../../lib/api';
-import { radio, useEstilos, useTema, type Paleta } from '../../lib/tema';
+import { Etiquetas } from '../../compartido/bien';
+import { Boton } from '../../compartido/ui';
+import { buscarBienes } from '../../datos/catalogo';
+import { radio, useEstilos, useTema, type Paleta } from '../../compartido/tema';
+import { mensajeDeError } from '../../compartido/formato';
+import { comunes } from '../../compartido/estilos';
 
 const LARGO_MINIMO = 2;
 const ESPERA_MS = 350;
 
+/** Búsqueda manual de bienes por número, descripción, catálogo o ubicación, con espera al escribir. */
 export default function Buscar() {
   const router = useRouter();
   const { q: inicial } = useLocalSearchParams<{ q?: string }>();
@@ -39,7 +42,7 @@ export default function Buscar() {
         const lista = await buscarBienes(consulta);
         if (vigente) setResultados(lista);
       } catch (err) {
-        if (vigente) setError(err instanceof Error ? err.message : 'No se pudo buscar.');
+        if (vigente) setError(mensajeDeError(err, 'No se pudo buscar.'));
       }
       if (vigente) setBuscando(false);
     }, ESPERA_MS);
@@ -54,14 +57,14 @@ export default function Buscar() {
   return (
     <View style={e.contenedor}>
       <View style={e.columna}>
-        <View style={e.campo}>
+        <View style={e.campoBusqueda}>
           <Ionicons name="search-outline" size={22} color={c.suave} />
           <TextInput
             value={texto}
             onChangeText={setTexto}
             placeholder="Número, descripción, catálogo o ubicación"
             placeholderTextColor={c.suave}
-            style={e.entrada}
+            style={e.entradaBusqueda}
             autoFocus={!inicial}
             autoCorrect={false}
             returnKeyType="search"
@@ -115,14 +118,7 @@ export default function Buscar() {
 }
 
 const fabrica = (c: Paleta) => ({
-  contenedor: { flex: 1, alignItems: 'center' },
-  columna: { width: '100%', maxWidth: 720, paddingHorizontal: 20, paddingTop: 20, gap: 10 },
-  campo: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 52, paddingHorizontal: 14, borderRadius: radio, borderWidth: 1.5, borderColor: c.borde, backgroundColor: c.superficie },
-  entrada: { flex: 1, fontSize: 16, color: c.texto, minHeight: 48 },
-  ayuda: { fontSize: 14, color: c.suave },
-  error: { fontSize: 15, color: c.error },
-  listaExterna: { width: '100%' },
-  lista: { width: '100%', maxWidth: 720, alignSelf: 'center', padding: 20, gap: 12 },
+  ...comunes(c),
   tarjeta: { backgroundColor: c.superficie, borderRadius: radio, padding: 14, gap: 6, borderWidth: 1, borderColor: c.borde },
   numero: { fontSize: 20, fontWeight: '800', color: c.titulo, letterSpacing: 0.5 },
   descripcion: { fontSize: 15, color: c.texto },

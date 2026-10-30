@@ -1,3 +1,4 @@
+// Validación de lo que la app sube como relevamiento (UUID, tope por subida, coherencia de campos), antes de enviarlo a Supabase.
 import { esSimbologia } from './simbologias.js';
 import {
   CLASES_HALLAZGO,

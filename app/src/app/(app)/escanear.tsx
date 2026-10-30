@@ -1,14 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
-import { esSimbologia, SIMBOLOGIAS_POR_DEFECTO, type ResultadoEscaneoDto, type Simbologia } from '@patrimonio/shared';
-import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
+import { type ResultadoEscaneoDto } from '@patrimonio/shared';
+import { CameraView, type BarcodeScanningResult } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { Etiquetas } from '../../components/bien';
-import { Boton } from '../../components/ui';
-import { enviarEscaneo, simbologiasHabilitadas } from '../../lib/api';
-import { useEstilos, useTema, type Paleta } from '../../lib/tema';
+import { Etiquetas } from '../../compartido/bien';
+import { Boton } from '../../compartido/ui';
+import { resolverEscaneo } from '../../datos/catalogo';
+import { useEstilos, useTema, type Paleta } from '../../compartido/tema';
+import { mensajeDeError } from '../../compartido/formato';
+import { PermisoCamara } from '../../compartido/permiso-camara';
+import { useLector } from '../../compartido/useLector';
 
 /** Tras "Escanear otro", el mismo código se ignora este tiempo: la cámara sigue viendo la etiqueta anterior. */
 const IGNORAR_REPETIDO_MS = 2000;
@@ -20,10 +23,16 @@ type Estado =
   | { tipo: 'error'; mensaje: string };
 
 export default function Escanear() {
+  return (
+    <PermisoCamara>
+      <PantallaEscaneo />
+    </PermisoCamara>
+  );
+}
+
+function PantallaEscaneo() {
   const router = useRouter();
-  const [permiso, pedirPermiso] = useCameraPermissions();
-  // La cámara arranca con las simbologías por defecto; si el servidor responde con otra lista, se actualiza.
-  const [simbologias, setSimbologias] = useState<Simbologia[]>([...SIMBOLOGIAS_POR_DEFECTO]);
+  const { simbologias, tomar, liberar } = useLector();
   const [estado, setEstado] = useState<Estado>({ tipo: 'listo' });
   const [linterna, setLinterna] = useState(false);
   const { c } = useTema();
@@ -31,36 +40,25 @@ export default function Escanear() {
   const { width, height } = useWindowDimensions();
   // En horizontal o en pantallas anchas el panel de resultado va al costado.
   const lateral = width > height && width >= 600;
-  // La cámara emite varias lecturas por segundo: este flag evita consultas duplicadas.
-  const ocupado = useRef(false);
-  const ultimo = useRef({ clave: '', hasta: 0 });
 
-  useEffect(() => {
-    simbologiasHabilitadas().then(setSimbologias);
-  }, []);
-
-  const alLeer = useCallback(async ({ type, data }: BarcodeScanningResult) => {
-    const clave = `${type}:${data}`;
-    if (ocupado.current || !esSimbologia(type)) return;
-    if (clave === ultimo.current.clave && Date.now() < ultimo.current.hasta) return;
-    ocupado.current = true;
-    ultimo.current.clave = clave;
+  const alLeer = useCallback(async ({ type: tipo, data }: BarcodeScanningResult) => {
+    const type = tomar(tipo, data);
+    if (!type) return;
     setEstado({ tipo: 'consultando' });
     try {
-      const resultado = await enviarEscaneo(type, data);
+      const resultado = await resolverEscaneo(type, data);
       void Haptics.notificationAsync(
         resultado.encontrado ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning,
       );
       setEstado({ tipo: 'resultado', leido: data, simbologia: type, resultado });
     } catch (error) {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      setEstado({ tipo: 'error', mensaje: error instanceof Error ? error.message : 'Error de red' });
+      setEstado({ tipo: 'error', mensaje: mensajeDeError(error, 'Error de red') });
     }
-  }, []);
+  }, [tomar]);
 
   const escanearOtro = () => {
-    ultimo.current.hasta = Date.now() + IGNORAR_REPETIDO_MS;
-    ocupado.current = false;
+    liberar(IGNORAR_REPETIDO_MS);
     setEstado({ tipo: 'listo' });
   };
 
@@ -68,16 +66,6 @@ export default function Escanear() {
     router.push({ pathname: '/relevamiento/nuevo', params: { numero, simbologia, leido } });
 
   const verFicha = (numero: string) => router.push({ pathname: '/bien/[numero]', params: { numero } });
-
-  if (!permiso) return <View style={e.centro} />;
-  if (!permiso.granted) {
-    return (
-      <View style={e.centro}>
-        <Text style={e.texto}>Se necesita acceso a la cámara para leer códigos.</Text>
-        <Boton texto="Permitir cámara" onPress={pedirPermiso} />
-      </View>
-    );
-  }
 
   const bien = estado.tipo === 'resultado' ? estado.resultado.bien : undefined;
 
@@ -155,7 +143,6 @@ export default function Escanear() {
 
 const fabrica = (c: Paleta) => ({
   contenedor: { flex: 1, backgroundColor: '#000000' },
-  centro: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16, backgroundColor: c.fondo },
   guia: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, alignItems: 'center', justifyContent: 'center' },
   marco: { width: '78%', maxWidth: 360, aspectRatio: 1.8, borderRadius: 16, borderWidth: 3, borderColor: 'rgba(255,255,255,0.9)' },
   linterna: { position: 'absolute', top: 16, right: 16, width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.55)' },

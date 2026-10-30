@@ -5,11 +5,14 @@ import * as Haptics from 'expo-haptics';
 import * as Sharing from 'expo-sharing';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { Seccion } from '../../components/bien';
-import { Boton } from '../../components/ui';
-import { exportarRelevamientos, listarUbicaciones, type ArchivoCsv, type FiltroExportacion } from '../../lib/api';
-import { useSesion } from '../../lib/sesion';
-import { radio, useEstilos, useTema, type Paleta } from '../../lib/tema';
+import { Seccion } from '../../compartido/bien';
+import { Boton, Opciones } from '../../compartido/ui';
+import { listarUbicaciones } from '../../datos/catalogo';
+import { type ArchivoCsv, exportarRelevamientos, type FiltroExportacion } from '../../datos/exportaciones';
+import { useSesion } from '../../sesion/sesion';
+import { radio, useEstilos, useTema, type Paleta } from '../../compartido/tema';
+import { mensajeDeError } from '../../compartido/formato';
+import { comunes } from '../../compartido/estilos';
 
 type Periodo = 'hoy' | '7' | '30' | 'todo';
 const PERIODOS: { valor: Periodo; titulo: string }[] = [
@@ -88,7 +91,7 @@ export default function Exportar() {
         await compartir(archivoLocal.uri);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo generar el archivo.');
+      setError(mensajeDeError(err, 'No se pudo generar el archivo.'));
     }
     setGenerando(false);
   };
@@ -99,15 +102,15 @@ export default function Exportar() {
         <Text style={e.suave}>Genera un archivo CSV de relevamientos que se abre en Excel. Cada exportación queda registrada con quién, cuándo y con qué filtros.</Text>
 
         <Text style={e.titulo}>Período</Text>
-        <Opciones opciones={PERIODOS.map((p) => ({ clave: p.valor, titulo: p.titulo }))} actual={periodo} alElegir={(v) => setPeriodo(v as Periodo)} />
+        <Opciones rol="radio" tamano="grande" opciones={PERIODOS.map((p) => ({ clave: p.valor, titulo: p.titulo }))} actual={periodo} alElegir={(v) => setPeriodo(v as Periodo)} />
 
         <Text style={e.titulo}>Resultado</Text>
-        <Opciones opciones={RESULTADOS.map((r) => ({ clave: r.valor ?? 'todos', titulo: r.titulo }))} actual={resultado ?? 'todos'} alElegir={(v) => setResultado(v === 'todos' ? null : (v as FiltroExportacion['resultado']))} />
+        <Opciones rol="radio" tamano="grande" opciones={RESULTADOS.map((r) => ({ clave: r.valor ?? 'todos', titulo: r.titulo }))} actual={resultado ?? 'todos'} alElegir={(v) => setResultado(v === 'todos' ? null : (v as FiltroExportacion['resultado']))} />
 
         {esAdmin && (
           <>
             <Text style={e.titulo}>Relevadores</Text>
-            <Opciones
+            <Opciones rol="radio" tamano="grande"
               opciones={[
                 { clave: 'todos', titulo: 'Todos' },
                 { clave: 'mios', titulo: 'Solo los míos' },
@@ -148,36 +151,13 @@ export default function Exportar() {
   );
 }
 
-function Opciones({ opciones, actual, alElegir }: { opciones: { clave: string; titulo: string }[]; actual: string; alElegir: (clave: string) => void }) {
-  const e = useEstilos(fabrica);
-  const { c } = useTema();
-  return (
-    <View style={e.chips}>
-      {opciones.map((o) => (
-        <Pressable
-          key={o.clave}
-          accessibilityRole="radio"
-          accessibilityState={{ selected: actual === o.clave }}
-          onPress={() => alElegir(o.clave)}
-          style={[e.chip, actual === o.clave && { backgroundColor: c.primario, borderColor: c.primario }]}
-        >
-          <Text style={[e.chipTexto, actual === o.clave && { color: c.sobrePrimario }]}>{o.titulo}</Text>
-        </Pressable>
-      ))}
-    </View>
-  );
-}
-
 const fabrica = (c: Paleta) => ({
+  ...comunes(c),
   contenido: { padding: 20, alignItems: 'center' },
   columna: { width: '100%', maxWidth: 640, gap: 12 },
   titulo: { fontSize: 17, fontWeight: '800', color: c.titulo, marginTop: 6 },
   texto: { fontSize: 15, color: c.texto },
   suave: { fontSize: 14, color: c.suave },
-  error: { fontSize: 15, color: c.error },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { minHeight: 48, paddingHorizontal: 18, borderRadius: 24, borderWidth: 1.5, borderColor: c.borde, backgroundColor: c.superficie, alignItems: 'center', justifyContent: 'center' },
-  chipTexto: { fontSize: 15, fontWeight: '600', color: c.texto },
   opcionUbicacion: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48 },
   ubicacionTexto: { flex: 1, fontSize: 15, color: c.texto },
   constancia: { backgroundColor: c.superficie, borderRadius: radio, padding: 16, gap: 8, borderWidth: 2, borderColor: c.ok },
