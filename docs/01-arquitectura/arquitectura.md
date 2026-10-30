@@ -1,25 +1,44 @@
 # Arquitectura
 
-Monorepo con npm workspaces.
+Monorepo con npm workspaces (`shared` y `app`) más la carpeta `supabase/`. No hay backend propio: la app habla directo con Supabase (plan v3, ADR 0001).
 
-- `shared/`: simbologías, normalización de códigos, tipos de datos (DTO) y constantes compartidas. Se compila a `dist/` para que lo consuman Nest y Expo.
-- `backend/`: NestJS 12 + Prisma 7 + PostgreSQL (Supabase). Resuelve escaneos, sirve bienes, recibe relevamientos y hallazgos, exporta CSV, administra cuentas y registra la auditoría. Importa el catálogo desde un archivo de SIU.
-- `app/`: Expo SDK 58 + Expo Router (Android). Sesión en `expo-secure-store`, bloqueo con PIN o biometría y lote en curso en el teléfono. SQLite local y cola de sincronización: pendientes (fase 2 del plan).
+- `shared/`: simbologías, normalización de códigos, lectura de archivos del catálogo (CSV y XLSX), validación de relevamientos, tipos de datos (DTO) y constantes. Se compila a `dist/` para que lo consuma Expo.
+- `app/`: Expo SDK 58 + Expo Router (Android). Sesión en `expo-secure-store`, bloqueo opcional con PIN o biometría. Su código está en `app/src/` (ver más abajo).
+- `supabase/`: migraciones SQL (tablas, RLS, funciones), Edge Function `admin-cuentas` y pruebas SQL por rol. `base-prisma/` conserva el esquema original creado con Prisma.
+
+## Estructura de `app/src/`
+
+| Carpeta | Contenido |
+|---|---|
+| `app/` | Las pantallas (Expo Router: una ruta por archivo). Arman la pantalla y delegan; `(app)` es la zona con sesión y `(auth)` el inicio de sesión. |
+| `datos/` | Todo el acceso a Supabase, un archivo por tema: `supabase.ts` (cliente), `util.ts`, `cuentas.ts`, `catalogo.ts`, `relevamientos.ts`, `hallazgos.ts` (fotos y vínculo), `exportaciones.ts`, `auditoria.ts`, `jornadas.ts` e `importar-catalogo.ts`. |
+| `sesion/` | Sesión de Supabase y perfil (`sesion.tsx`), bloqueo con PIN (`bloqueo.tsx`, `pin.tsx`), `almacen-seguro.ts` y `credenciales.tsx`. |
+| `compartido/` | Lo que usan todas las funciones: `ui.tsx` (botón, chips y pestañas, barra de avance, estado de carga), `menu.tsx`, `tema.tsx`, `estilos.ts`, `formato.ts`, `navegacion.ts` (mapa de funciones del inicio y del menú), `useCarga.tsx`, `useLector.ts` y `permiso-camara.tsx`. |
+| `funciones/` | La lógica y las piezas propias de cada función grande: `lote/` (pasos elegir, escanear y resumen), `jornada/` (datos en vivo y fila de avance), `historiales/` y `hallazgo/`. |
+
+Las pantallas importan de `datos/`, `compartido/`, `sesion/` y `funciones/`; `datos/` no importa de las demás.
+
+## Datos y seguridad
+
+- La app usa la clave publicable de Supabase y la sesión de Supabase Auth. La seguridad la imponen las políticas RLS y las funciones `SECURITY DEFINER` con privilegios mínimos (ADR 0005); no hay otra barrera.
+- Las cuentas las crea un administrador mediante la Edge Function `admin-cuentas` (la clave secreta vive solo allí). Roles: `administrador` y `relevador`. Estados: `activa`, `suspendida`, `baja`.
+- `evento_auditoria` (eventos de negocio) y `cambio_fila` (cambios de fila, por triggers con `auth.uid()`) son append-only (ADR 0006).
+
+## Catálogo
+
+Un único catálogo compartido en la tabla `bien`. Entra por archivo CSV o XLSX descargado de SIU Diaguita, que un administrador carga desde la app (RPC `importar_catalogo`, con vista previa y actualización solo de las columnas presentes). Cada carga queda en el historial. Detalle en `../siu/README.md` y ADR 0003.
 
 ## Resolución de un escaneo
 
-1. La app lee la lista de simbologías habilitadas (`GET /configuracion/simbologias`, variable `SIMBOLOGIAS_HABILITADAS`) y la pasa a `barcodeScannerSettings.barcodeTypes`.
-2. Envía `{ simbologia, valor }` a `POST /bienes/escaneo`.
-3. El servidor normaliza el valor, busca en `codigo_bien` por (simbologia, valor) y, si no hay coincidencia, por `numero_inventario` completado a 8 dígitos (las etiquetas físicas traen menos dígitos que SIU).
+1. La cámara lee el código con las simbologías habilitadas (por defecto, las de `shared`).
+2. La app busca por (`simbologia`, `valor`) en `codigo_bien` y, si no hay coincidencia, por `numeroInventario` normalizado (las etiquetas traen menos dígitos que SIU).
 
-## Autenticación
+## Relevamientos
 
-`RelevadorGuard` (`backend/src/auth/`) valida el token de Supabase Auth (`SUPABASE_URL`, JWKS). Falla cerrada: sin esa variable el backend no arranca, salvo `AUTH_PROVISORIA=true` (identidad por `x-relevador`, solo desarrollo y pruebas, prohibido en producción). Un guard de roles global aplica denegación por defecto (`@Publico()`, `@PermitirInactivo()`, `@Roles(...)`). Las cuentas nuevas quedan `pendiente` hasta que un administrador las aprueba. El guard es el único punto a reemplazar por el login institucional.
-
-## Auditoría
-
-`evento_auditoria` (eventos de negocio) y `cambio_fila` (cambios de fila, por triggers con el actor tomado de `app.usuario_id`) son append-only: triggers bloquean UPDATE, DELETE y TRUNCATE.
+- Individuales, por lote de ubicación y hallazgos (con foto opcional en Storage, bucket privado `hallazgos`). Se suben de forma idempotente por `idCliente`.
+- **Jornadas** por área o ubicación: relevamiento compartido en tiempo real (Supabase Realtime). Lo esperado se calcula del catálogo; si dos personas leen el mismo bien figura la primera según la hora del servidor (ADR 0004).
+- Exportación a CSV con constancia (filtros, filas y huella SHA-256). Los historiales de cargas y de exportaciones los ven todas las cuentas activas.
 
 ## Comandos
 
-Ver `../00-inicio/puesta-en-marcha.md` para levantar el proyecto. Los comandos habituales son `npm run build`, `npm run lint`, `npm test` y `npm run test:e2e -w backend`.
+Ver `../00-inicio/puesta-en-marcha.md`. Los habituales son `npm run build`, `npm run lint`, `npm test` y `npm run start -w app -- --clear`.
