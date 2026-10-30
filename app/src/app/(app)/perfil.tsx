@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
-import { Boton, Campo } from '../../components/ui';
-import { actualizarNombre } from '../../lib/api';
-import { useSesion } from '../../lib/sesion';
-import { radio, useEstilos, type Paleta } from '../../lib/tema';
+import { Boton, Campo } from '../../compartido/ui';
+import { actualizarNombre } from '../../datos/cuentas';
+import { useSesion } from '../../sesion/sesion';
+import { radio, useEstilos, type Paleta } from '../../compartido/tema';
+import { mensajeDeError } from '../../compartido/formato';
 
 const LARGO_MINIMO = 8;
 
+/** Datos de la cuenta (nombre editable, rol, estado) y su actividad reciente. */
 export default function Perfil() {
   const { perfil, recargarPerfil, cambiarClave, cerrarSesion } = useSesion();
   const e = useEstilos(fabrica);
@@ -29,7 +31,7 @@ export default function Perfil() {
       await recargarPerfil();
       setMsgNombre({ ok: true, texto: 'Datos guardados.' });
     } catch (error) {
-      setMsgNombre({ ok: false, texto: error instanceof Error ? error.message : 'No se pudo guardar.' });
+      setMsgNombre({ ok: false, texto: mensajeDeError(error, 'No se pudo guardar.') });
     }
     setGuardando(false);
   };

@@ -1,12 +1,14 @@
 import type { RelevamientoRegistradoDto } from '@patrimonio/shared';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
-import { ChipResultado, Seccion } from '../../components/bien';
-import { Boton } from '../../components/ui';
-import { misRelevamientos, relevamientosDelEquipo } from '../../lib/api';
-import { fechaHora } from '../../lib/formato';
-import { radio, useEstilos, useTema, type Paleta } from '../../lib/tema';
+import { useMemo, useState } from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ChipResultado, Seccion } from '../../compartido/bien';
+import { Boton, EstadoCarga, Opciones } from '../../compartido/ui';
+import { misRelevamientos, relevamientosDelEquipo } from '../../datos/relevamientos';
+import { fechaHora } from '../../compartido/formato';
+import { radio, useEstilos, type Paleta } from '../../compartido/tema';
+import { comunes } from '../../compartido/estilos';
+import { useCarga } from '../../compartido/useCarga';
 
 interface Grupo {
   clave: string;
@@ -38,24 +40,13 @@ type Alcance = 'mios' | 'equipo';
 export default function MisRelevamientos() {
   const router = useRouter();
   const e = useEstilos(fabrica);
-  const { c } = useTema();
   const [alcance, setAlcance] = useState<Alcance>('mios');
-  const [lista, setLista] = useState<RelevamientoRegistradoDto[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [actualizando, setActualizando] = useState(false);
 
-  const cargar = useCallback(async () => {
-    setError(null);
-    try {
-      setLista(alcance === 'mios' ? await misRelevamientos() : await relevamientosDelEquipo());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudieron cargar los relevamientos.');
-    }
-  }, [alcance]);
-  useEffect(() => {
-    setLista(null);
-    void cargar();
-  }, [cargar]);
+  const { datos: lista, error, cargar, controlRecarga } = useCarga(
+    () => (alcance === 'mios' ? misRelevamientos() : relevamientosDelEquipo()),
+    [alcance],
+    'No se pudieron cargar los relevamientos.',
+  );
 
   const grupos = useMemo(() => agrupar(lista ?? []), [lista]);
   const abrir = (id: string) => router.push({ pathname: '/relevamiento/[id]', params: { id } });
@@ -63,39 +54,18 @@ export default function MisRelevamientos() {
   return (
     <ScrollView
       contentContainerStyle={e.contenido}
-      refreshControl={
-        <RefreshControl
-          refreshing={actualizando}
-          onRefresh={async () => {
-            setActualizando(true);
-            await cargar();
-            setActualizando(false);
-          }}
-          tintColor={c.accion}
-        />
-      }
+      refreshControl={controlRecarga}
     >
       <View style={e.columna}>
-        <View style={e.filtros}>
-          {([['mios', 'Míos'], ['equipo', 'Del equipo']] as const).map(([valor, titulo]) => (
-            <Pressable
-              key={valor}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: alcance === valor }}
-              onPress={() => setAlcance(valor)}
-              style={[e.filtro, alcance === valor && { backgroundColor: c.primario }]}
-            >
-              <Text style={[e.filtroTexto, alcance === valor && { color: c.sobrePrimario }]}>{titulo}</Text>
-            </Pressable>
-          ))}
-        </View>
-        {error && (
-          <View style={{ gap: 12 }}>
-            <Text style={e.error}>{error}</Text>
-            <Boton texto="Reintentar" variante="secundario" onPress={cargar} />
-          </View>
-        )}
-        {!error && !lista && <ActivityIndicator size="large" color={c.accion} />}
+        <Opciones<Alcance>
+          opciones={[
+            { clave: 'mios', titulo: 'Míos' },
+            { clave: 'equipo', titulo: 'Del equipo' },
+          ]}
+          actual={alcance}
+          alElegir={setAlcance}
+        />
+        <EstadoCarga error={error} cargando={!lista} alReintentar={cargar} grande />
         {lista && lista.length === 0 && (
           <View style={e.vacio}>
             <Text style={e.vacioTitulo}>{alcance === 'mios' ? 'Todavía no registraste relevamientos' : 'Todavía no hay relevamientos'}</Text>
@@ -153,15 +123,12 @@ export default function MisRelevamientos() {
 }
 
 const fabrica = (c: Paleta) => ({
+  ...comunes(c),
   contenido: { padding: 20, alignItems: 'center' },
   columna: { width: '100%', maxWidth: 720, gap: 12 },
   suave: { fontSize: 14, color: c.suave },
-  error: { fontSize: 15, color: c.error },
   vacio: { gap: 12, padding: 20, backgroundColor: c.superficie, borderRadius: radio, borderWidth: 1, borderColor: c.borde },
   vacioTitulo: { fontSize: 17, fontWeight: '800', color: c.titulo },
-  filtros: { flexDirection: 'row', gap: 8 },
-  filtro: { paddingVertical: 10, paddingHorizontal: 18, borderRadius: 20, borderWidth: 1, borderColor: c.borde, backgroundColor: c.superficie },
-  filtroTexto: { fontSize: 15, fontWeight: '600', color: c.texto },
   fila: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, borderTopWidth: 1, borderTopColor: c.borde },
   numero: { fontSize: 17, fontWeight: '800', color: c.titulo },
   flecha: { fontSize: 28, color: c.suave },

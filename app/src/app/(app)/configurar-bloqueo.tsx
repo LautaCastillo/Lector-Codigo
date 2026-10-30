@@ -1,10 +1,10 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
-import { PanelPin } from '../../components/pin';
-import { Boton } from '../../components/ui';
-import { LARGO_PIN, pinDebil, useBloqueo } from '../../lib/bloqueo';
-import { useEstilos, type Paleta } from '../../lib/tema';
+import { PanelPin } from '../../sesion/pin';
+import { Boton } from '../../compartido/ui';
+import { LARGO_PIN, pinDebil, useBloqueo } from '../../sesion/bloqueo';
+import { useEstilos, type Paleta } from '../../compartido/tema';
 
 type Paso = { tipo: 'crear' } | { tipo: 'confirmar'; pin: string } | { tipo: 'biometria'; pin: string };
 

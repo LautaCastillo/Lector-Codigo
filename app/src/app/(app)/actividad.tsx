@@ -1,12 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { CuentaDto, EventoAuditoriaDto } from '@patrimonio/shared';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
-import { Boton } from '../../components/ui';
-import { listarAuditoria, listarCuentas } from '../../lib/api';
-import { fechaHora } from '../../lib/formato';
-import { categoria, CATEGORIAS, describirEvento, type Categoria } from '../../lib/actividad';
-import { radio, useEstilos, useTema, type Paleta } from '../../lib/tema';
+import { useCallback, useMemo, useState } from 'react';
+import { ScrollView, Text, View } from 'react-native';
+import { Boton, Chip, EstadoCarga } from '../../compartido/ui';
+import { listarAuditoria } from '../../datos/auditoria';
+import { listarCuentas } from '../../datos/cuentas';
+import { fechaHora } from '../../compartido/formato';
+import { categoria, CATEGORIAS, describirEvento, type Categoria } from '../../compartido/actividad';
+import { radio, useEstilos, useTema, type Paleta } from '../../compartido/tema';
+import { comunes } from '../../compartido/estilos';
+import { useCarga } from '../../compartido/useCarga';
 
 const PAGINA = 50;
 const LIMITE_SERVIDOR = 200;
@@ -18,31 +20,25 @@ const ICONOS: Record<Categoria, keyof typeof Ionicons.glyphMap> = {
   consultas: 'eye-outline',
 };
 
+/** Solo administradores: el registro de auditoría reciente, con filtros por cuentas, sesiones y consultas. */
 export default function Actividad() {
   const e = useEstilos(fabrica);
   const { c } = useTema();
-  const [eventos, setEventos] = useState<EventoAuditoriaDto[] | null>(null);
-  const [cuentas, setCuentas] = useState<CuentaDto[]>([]);
   const [filtro, setFiltro] = useState<Categoria | null>(null);
   const [limite, setLimite] = useState(PAGINA);
-  const [error, setError] = useState<string | null>(null);
-  const [actualizando, setActualizando] = useState(false);
 
-  const cargar = useCallback(async () => {
-    setError(null);
-    try {
-      // Las cuentas se piden aparte para mostrar nombres en lugar de identificadores.
+  // Las cuentas se piden aparte para mostrar nombres en lugar de identificadores.
+  const { datos, error, cargar, controlRecarga } = useCarga(
+    async () => {
       const [lista, personas] = await Promise.all([listarAuditoria(limite), listarCuentas()]);
-      setEventos(lista);
-      setCuentas(personas);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo cargar la actividad.');
-    }
-  }, [limite]);
-
-  useEffect(() => {
-    void cargar();
-  }, [cargar]);
+      return { eventos: lista, cuentas: personas };
+    },
+    [limite],
+    'No se pudo cargar la actividad.',
+    { conservar: true },
+  );
+  const eventos = datos?.eventos ?? null;
+  const cuentas = datos?.cuentas ?? [];
 
   const nombres = useMemo(() => new Map(cuentas.map((p) => [p.id, p.nombre ?? p.cuenta])), [cuentas]);
   const nombre = useCallback((id: string | null) => (id ? (nombres.get(id) ?? 'una cuenta desconocida') : 'una cuenta'), [nombres]);
@@ -54,35 +50,19 @@ export default function Actividad() {
   return (
     <ScrollView
       contentContainerStyle={e.contenido}
-      refreshControl={
-        <RefreshControl
-          refreshing={actualizando}
-          onRefresh={async () => {
-            setActualizando(true);
-            await cargar();
-            setActualizando(false);
-          }}
-          tintColor={c.accion}
-        />
-      }
+      refreshControl={controlRecarga}
     >
       <View style={e.columna}>
         <Text style={e.ayuda}>Registro de cuentas y sesiones. No se puede editar ni borrar. Cada consulta a esta pantalla también queda registrada.</Text>
 
         <View style={e.filtros}>
-          <Chip titulo="Todo" activo={filtro === null} alTocar={() => setFiltro(null)} />
+          <Chip rol="tab" tamano="pestana" texto="Todo" activo={filtro === null} alTocar={() => setFiltro(null)} />
           {CATEGORIAS.map((cat) => (
-            <Chip key={cat.valor} titulo={cat.titulo} activo={filtro === cat.valor} alTocar={() => setFiltro(cat.valor)} />
+            <Chip key={cat.valor} rol="tab" tamano="pestana" texto={cat.titulo} activo={filtro === cat.valor} alTocar={() => setFiltro(cat.valor)} />
           ))}
         </View>
 
-        {error && (
-          <View style={{ gap: 12 }}>
-            <Text style={e.error}>{error}</Text>
-            <Boton texto="Reintentar" variante="secundario" onPress={cargar} />
-          </View>
-        )}
-        {!error && !eventos && <ActivityIndicator size="large" color={c.accion} />}
+        <EstadoCarga error={error} cargando={!eventos} alReintentar={cargar} grande />
         {eventos && visibles.length === 0 && <Text style={e.vacio}>No hay actividad para mostrar.</Text>}
 
         {visibles.map((ev) => (
@@ -107,32 +87,14 @@ export default function Actividad() {
   );
 }
 
-function Chip({ titulo, activo, alTocar }: { titulo: string; activo: boolean; alTocar: () => void }) {
-  const e = useEstilos(fabrica);
-  const { c } = useTema();
-  return (
-    <Pressable
-      accessibilityRole="tab"
-      accessibilityState={{ selected: activo }}
-      onPress={alTocar}
-      style={[e.filtro, activo && { backgroundColor: c.primario, borderColor: c.primario }]}
-    >
-      <Text style={[e.filtroTexto, activo && { color: c.sobrePrimario }]}>{titulo}</Text>
-    </Pressable>
-  );
-}
-
 const fabrica = (c: Paleta) => ({
+  ...comunes(c),
   contenido: { padding: 20, alignItems: 'center' },
   columna: { width: '100%', maxWidth: 640, gap: 12 },
-  ayuda: { fontSize: 14, color: c.suave },
   filtros: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  filtro: { paddingVertical: 10, paddingHorizontal: 18, borderRadius: 20, borderWidth: 1, borderColor: c.borde, backgroundColor: c.superficie },
-  filtroTexto: { fontSize: 15, fontWeight: '600', color: c.texto },
   tarjeta: { flexDirection: 'row', gap: 12, backgroundColor: c.superficie, borderRadius: radio, padding: 14, borderWidth: 1, borderColor: c.borde },
   icono: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.celeste, alignItems: 'center', justifyContent: 'center' },
   frase: { fontSize: 15, fontWeight: '600', color: c.texto },
   detalle: { fontSize: 13, color: c.suave },
   vacio: { fontSize: 16, color: c.suave, textAlign: 'center', paddingVertical: 24 },
-  error: { fontSize: 15, color: c.error },
 });

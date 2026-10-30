@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Text, View } from 'react-native';
-import { Boton, Cargando, Logo } from '../components/ui';
-import { useSesion } from '../lib/sesion';
-import { useEstilos, type Paleta } from '../lib/tema';
+import { Boton, Cargando, Logo } from '../compartido/ui';
+import { useSesion } from '../sesion/sesion';
+import { useEstilos, type Paleta } from '../compartido/tema';
 
 const TEXTOS = {
   sinCuenta: {

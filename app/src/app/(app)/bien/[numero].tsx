@@ -5,12 +5,15 @@ import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
-import { ChipResultado, Dato, Etiquetas, Seccion } from '../../../components/bien';
-import { Boton } from '../../../components/ui';
-import { historialBien, obtenerBien, relevamientosDeBien, ErrorApi } from '../../../lib/api';
-import { ETIQUETA_CAMPO, fechaCorta, fechaHora, moneda, valorLegible } from '../../../lib/formato';
-import { radio, useEstilos, useTema, type Paleta } from '../../../lib/tema';
+import { ChipResultado, Dato, Etiquetas, Seccion } from '../../../compartido/bien';
+import { Boton } from '../../../compartido/ui';
+import { historialBien, obtenerBien } from '../../../datos/catalogo';
+import { relevamientosDeBien } from '../../../datos/relevamientos';
+import { ErrorApi } from '../../../datos/util';
+import { ETIQUETA_CAMPO, fechaCorta, fechaHora, mensajeDeError, moneda, valorLegible } from '../../../compartido/formato';
+import { radio, useEstilos, useTema, type Paleta } from '../../../compartido/tema';
 
+/** Ficha de un bien del catálogo (responsable, ubicación, estado), sus últimos relevamientos y su historial de cambios. */
 export default function FichaBien() {
   const { numero } = useLocalSearchParams<{ numero: string }>();
   const router = useRouter();
@@ -33,7 +36,7 @@ export default function FichaBien() {
       relevamientosDeBien(ficha.numeroInventario).then(setUltimos).catch(() => setUltimos(null));
     } catch (err) {
       setBien(null);
-      setError(err instanceof ErrorApi && err.estado === 404 ? 'Este bien no está en el catálogo.' : err instanceof Error ? err.message : 'No se pudo cargar la ficha.');
+      setError(err instanceof ErrorApi && err.estado === 404 ? 'Este bien no está en el catálogo.' : mensajeDeError(err, 'No se pudo cargar la ficha.'));
     }
   }, [numero]);
 

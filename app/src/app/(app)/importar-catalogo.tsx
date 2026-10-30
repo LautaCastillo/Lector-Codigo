@@ -1,11 +1,12 @@
 import type { BienSiu } from '@patrimonio/shared';
 import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
-import { Boton } from '../../components/ui';
+import { Boton } from '../../compartido/ui';
 import { useRouter } from 'expo-router';
-import { elegirArchivo, historialImportaciones, procesar, registrarCarga, type ArchivoLeido, type Importacion, type Totales } from '../../lib/importar-catalogo';
-import { fechaHora } from '../../lib/formato';
-import { radio, useEstilos, type Paleta } from '../../lib/tema';
+import { elegirArchivo, historialImportaciones, procesar, registrarCarga, type ArchivoLeido, type Importacion, type Totales } from '../../datos/importar-catalogo';
+import { fechaHora, mensajeDeError } from '../../compartido/formato';
+import { radio, useEstilos, type Paleta } from '../../compartido/tema';
+import { comunes } from '../../compartido/estilos';
 
 type Paso =
   | { tipo: 'inicio' }
@@ -50,7 +51,7 @@ export default function ImportarCatalogo() {
       const yaImportado = await historialImportaciones(500).then((h) => h.find((i) => i.hashSha256 === archivo.hash) ?? null).catch(() => null);
       setPaso({ tipo: 'previa', archivo, totales, yaImportado });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo leer el archivo.');
+      setError(mensajeDeError(err, 'No se pudo leer el archivo.'));
       setPaso({ tipo: 'inicio' });
     }
   };
@@ -64,7 +65,7 @@ export default function ImportarCatalogo() {
       setPaso({ tipo: 'listo', archivo, totales });
     } catch (err) {
       setError(
-        `${err instanceof Error ? err.message : 'No se pudo importar.'} Lo que ya se cargó queda guardado: podés repetir la importación, no duplica nada.`,
+        `${mensajeDeError(err, 'No se pudo importar.')} Lo que ya se cargó queda guardado: podés repetir la importación, no duplica nada.`,
       );
       setPaso({ tipo: 'inicio' });
     }
@@ -81,7 +82,7 @@ export default function ImportarCatalogo() {
         {(paso.tipo === 'inicio' || paso.tipo === 'leyendo') && (
           <>
             <Boton texto="Elegir archivo" onPress={elegir} cargando={paso.tipo === 'leyendo'} />
-            <Boton texto="Ver historial de importaciones" variante="secundario" onPress={() => router.push('/historial-importaciones')} />
+            <Boton texto="Ver historial de cargas" variante="secundario" onPress={() => router.push('/historiales')} />
           </>
         )}
         {error && <Text style={e.error}>{error}</Text>}
@@ -160,10 +161,10 @@ function Dato({ valor, titulo }: { valor: number; titulo: string }) {
 }
 
 const fabrica = (c: Paleta) => ({
+  ...comunes(c),
   contenido: { padding: 20, alignItems: 'center' },
   columna: { width: '100%', maxWidth: 560, gap: 16 },
   suave: { fontSize: 14, color: c.suave },
-  error: { fontSize: 15, color: c.error },
   aviso: { fontSize: 14, color: c.accion, fontWeight: '600' },
   tarjeta: { backgroundColor: c.superficie, borderRadius: radio, padding: 18, gap: 14, borderWidth: 1, borderColor: c.borde },
   titulo: { fontSize: 17, fontWeight: '700', color: c.titulo },

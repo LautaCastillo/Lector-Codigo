@@ -2,10 +2,12 @@ import type { Rol } from '@patrimonio/shared';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
-import { Credenciales } from '../../components/credenciales';
-import { Boton, Campo } from '../../components/ui';
-import { crearCuenta, type CuentaCreada } from '../../lib/api';
-import { useEstilos, useTema, type Paleta } from '../../lib/tema';
+import { Credenciales } from '../../sesion/credenciales';
+import { Boton, Campo } from '../../compartido/ui';
+import { crearCuenta, type CuentaCreada } from '../../datos/cuentas';
+import { useEstilos, useTema, type Paleta } from '../../compartido/tema';
+import { mensajeDeError } from '../../compartido/formato';
+import { comunes } from '../../compartido/estilos';
 
 const ROLES: { valor: Rol; titulo: string; detalle: string }[] = [
   { valor: 'relevador', titulo: 'Relevador', detalle: 'Escanea, relevó y exporta lo suyo' },
@@ -30,7 +32,7 @@ export default function CuentaNueva() {
     try {
       setCreada(await crearCuenta(usuario, nombre.trim(), rol));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo crear la cuenta.');
+      setError(mensajeDeError(err, 'No se pudo crear la cuenta.'));
     }
     setEnviando(false);
   };
@@ -80,13 +82,12 @@ export default function CuentaNueva() {
 }
 
 const fabrica = (c: Paleta) => ({
+  ...comunes(c),
   contenido: { padding: 20, alignItems: 'center' },
   columna: { width: '100%', maxWidth: 560, gap: 14 },
   etiqueta: { fontSize: 14, fontWeight: '600', color: c.texto },
-  ayuda: { fontSize: 14, color: c.suave },
   opcion: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12, borderWidth: 1.5, borderColor: c.borde, backgroundColor: c.superficie },
   opcionTitulo: { fontSize: 16, fontWeight: '600', color: c.texto },
   radio: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: c.borde, alignItems: 'center', justifyContent: 'center' },
   radioRelleno: { width: 12, height: 12, borderRadius: 6, backgroundColor: c.accion },
-  error: { fontSize: 15, color: c.error },
 });

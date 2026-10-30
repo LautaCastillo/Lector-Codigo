@@ -4,11 +4,12 @@ Todo lo que vive en la base de datos de Supabase, versionado como SQL (plan v3, 
 
 | Ruta | Contenido |
 |---|---|
+| `base-prisma/` | Esquema original creado con Prisma (histórico), para reconstruir la base desde cero antes de aplicar `migrations/` |
 | `migrations/` | Migraciones SQL, en orden. El nombre lleva la misma versión con la que quedó registrada en Supabase (`supabase_migrations.schema_migrations`). Las migraciones anteriores a la fase 1 están en `backend/prisma/migrations/` (línea base ya aplicada, que se retira con el backend) |
 | `functions/` | Edge Functions (`admin-cuentas`: crear cuentas y restablecer contraseñas con la clave secreta, que Supabase inyecta en la función) |
 | `tests/politicas.sql` | Pruebas de privilegios y políticas RLS por rol |
 | `tests/cuentas.sql` | Pruebas de las funciones de administración de cuentas |
-| `tests/catalogo.sql`, `tests/relevamientos.sql`, `tests/importar-catalogo.sql`, `tests/explorar.sql`, `tests/jornadas.sql` | Pruebas de la lectura del catálogo, de los relevamientos, fotos y eventos, de la importación del catálogo y de los listados por área y responsable |
+| `tests/catalogo.sql`, `tests/relevamientos.sql`, `tests/importar-catalogo.sql`, `tests/explorar.sql`, `tests/jornadas.sql`, `tests/jornadas-duplicados.sql`, `tests/historial-exportaciones.sql` | Pruebas de la lectura del catálogo, de los relevamientos, fotos y eventos, de la importación del catálogo y de los listados por área y responsable |
 
 ## Aplicar una migración
 

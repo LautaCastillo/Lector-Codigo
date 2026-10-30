@@ -5,10 +5,13 @@ import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { Etiquetas } from '../../../components/bien';
-import { Boton } from '../../../components/ui';
-import { listarUbicaciones, obtenerBien, subirRelevamientos } from '../../../lib/api';
-import { radio, useEstilos, useTema, type Paleta } from '../../../lib/tema';
+import { Etiquetas } from '../../../compartido/bien';
+import { Boton, Opciones } from '../../../compartido/ui';
+import { listarUbicaciones, obtenerBien } from '../../../datos/catalogo';
+import { subirRelevamientos } from '../../../datos/relevamientos';
+import { radio, useEstilos, useTema, type Paleta } from '../../../compartido/tema';
+import { mensajeDeError } from '../../../compartido/formato';
+import { comunes } from '../../../compartido/estilos';
 
 const LARGO_OBSERVACIONES = 500;
 type ModoUbicacion = 'catalogo' | 'otra';
@@ -37,7 +40,7 @@ export default function RegistrarRelevamiento() {
   useEffect(() => {
     obtenerBien(numero)
       .then(setBien)
-      .catch((err) => setErrorCarga(err instanceof Error ? err.message : 'No se pudo cargar el bien.'));
+      .catch((err) => setErrorCarga(mensajeDeError(err, 'No se pudo cargar el bien.')));
   }, [numero]);
 
   // Las ubicaciones del catálogo se piden solo si la persona dice que el bien está en otro lugar.
@@ -78,7 +81,7 @@ export default function RegistrarRelevamiento() {
       }
     } catch (err) {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      setError(err instanceof Error ? err.message : 'No se pudo registrar. Revisá la conexión y reintentá.');
+      setError(mensajeDeError(err, 'No se pudo registrar. Revisá la conexión y reintentá.'));
     }
     setEnviando(false);
   };
@@ -154,19 +157,13 @@ export default function RegistrarRelevamiento() {
 
           <Text style={e.titulo}>Estado físico</Text>
           <Text style={e.suave}>Catálogo: {bien.estadoBien ?? 'sin dato'}. Dejalo sin declarar si no querés opinar.</Text>
-          <View style={e.chips}>
-            {[null, ...ESTADOS_OBSERVABLES].map((op) => (
-              <Pressable
-                key={op ?? 'ninguno'}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: estado === op }}
-                onPress={() => setEstado(op)}
-                style={[e.chip, estado === op && { backgroundColor: c.primario, borderColor: c.primario }]}
-              >
-                <Text style={[e.chipTexto, estado === op && { color: c.sobrePrimario }]}>{op ?? 'Sin declarar'}</Text>
-              </Pressable>
-            ))}
-          </View>
+          <Opciones
+            rol="radio"
+            tamano="grande"
+            opciones={[null, ...ESTADOS_OBSERVABLES].map((op) => ({ clave: op ?? '', titulo: op ?? 'Sin declarar' }))}
+            actual={estado ?? ''}
+            alElegir={(v) => setEstado(v || null)}
+          />
 
           <Text style={e.titulo}>Observaciones</Text>
           <TextInput
@@ -208,6 +205,7 @@ function Opcion({ activa, titulo, detalle, alTocar }: { activa: boolean; titulo:
 }
 
 const fabrica = (c: Paleta) => ({
+  ...comunes(c),
   contenido: { padding: 20, alignItems: 'center' },
   columna: { width: '100%', maxWidth: 640, gap: 12 },
   centro: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 14, backgroundColor: c.fondo },
@@ -218,7 +216,6 @@ const fabrica = (c: Paleta) => ({
   tituloGrande: { fontSize: 24, fontWeight: '800', color: c.titulo, textAlign: 'center' },
   suave: { fontSize: 14, color: c.suave },
   suaveCentro: { fontSize: 15, color: c.suave, textAlign: 'center' },
-  error: { fontSize: 15, color: c.error },
   opcion: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64, padding: 14, borderRadius: radio, borderWidth: 1, borderColor: c.borde, backgroundColor: c.superficie },
   opcionTitulo: { fontSize: 16, fontWeight: '700', color: c.texto },
   radio: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: c.borde, alignItems: 'center', justifyContent: 'center' },
@@ -226,8 +223,5 @@ const fabrica = (c: Paleta) => ({
   campo: { minHeight: 52, borderWidth: 1.5, borderColor: c.borde, borderRadius: radio, paddingHorizontal: 14, fontSize: 16, color: c.texto, backgroundColor: c.superficie },
   sugerida: { padding: 12, borderRadius: radio, borderWidth: 1, borderColor: c.borde, backgroundColor: c.superficie, minHeight: 48, justifyContent: 'center' },
   sugeridaTexto: { fontSize: 14, color: c.texto },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { minHeight: 48, paddingHorizontal: 18, borderRadius: 24, borderWidth: 1.5, borderColor: c.borde, backgroundColor: c.superficie, alignItems: 'center', justifyContent: 'center' },
-  chipTexto: { fontSize: 15, fontWeight: '600', color: c.texto },
   contador: { fontSize: 12, color: c.suave, textAlign: 'right' },
 });

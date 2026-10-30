@@ -1,7 +1,8 @@
 import { Stack } from 'expo-router';
-import { ConMenu } from '../../components/menu';
-import { useTema } from '../../lib/tema';
+import { ConMenu } from '../../compartido/menu';
+import { useTema } from '../../compartido/tema';
 
+/** Pila de pantallas de la zona con sesión: define el título de cada una y las envuelve con el menú lateral. */
 export default function LayoutApp() {
   const { c } = useTema();
   return (
@@ -31,7 +32,7 @@ export default function LayoutApp() {
         <Stack.Screen name="cuentas" options={{ title: 'Cuentas' }} />
         <Stack.Screen name="cuenta-nueva" options={{ title: 'Nueva cuenta' }} />
         <Stack.Screen name="configurar-bloqueo" options={{ title: 'PIN de bloqueo' }} />
-        <Stack.Screen name="historial-importaciones" options={{ title: 'Historial de cargas' }} />
+        <Stack.Screen name="historiales" options={{ title: 'Historiales' }} />
         <Stack.Screen name="importar-catalogo" options={{ title: 'Importar catálogo' }} />
         <Stack.Screen name="actividad" options={{ title: 'Actividad' }} />
         <Stack.Screen name="perfil" options={{ title: 'Mi perfil' }} />

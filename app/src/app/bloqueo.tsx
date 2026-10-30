@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { Boton, Logo } from '../components/ui';
-import { PanelPin } from '../components/pin';
-import { useBloqueo } from '../lib/bloqueo';
-import { useSesion } from '../lib/sesion';
-import { useEstilos, useTema, type Paleta } from '../lib/tema';
+import { Boton, Logo } from '../compartido/ui';
+import { PanelPin } from '../sesion/pin';
+import { useBloqueo } from '../sesion/bloqueo';
+import { useSesion } from '../sesion/sesion';
+import { useEstilos, useTema, type Paleta } from '../compartido/tema';
 
 /** Pantalla de desbloqueo: biometría si está activada, y siempre el PIN como respaldo. */
 export default function Bloqueo() {

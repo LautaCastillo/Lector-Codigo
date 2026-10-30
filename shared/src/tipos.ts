@@ -1,3 +1,4 @@
+// Tipos, listas cerradas y DTO compartidos entre la app y las pruebas (estados, roles, resultados, bienes, relevamientos, eventos).
 import type { Simbologia } from './simbologias.js';
 
 export const ESTADOS_CODIGO = ['legible', 'sin_codigo', 'codigo_danado', 'desconocido'] as const;
