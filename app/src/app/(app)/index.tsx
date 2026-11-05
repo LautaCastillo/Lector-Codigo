@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMenu } from '../../compartido/menu';
 import { Barra, Entrada, Logo } from '../../compartido/ui';
 import { type Jornada, listarJornadas } from '../../datos/jornadas';
+import { PildoraDeRed } from '../../funciones/cola/pildora-de-red';
 import { ESCANEAR, SECCIONES, type Funcion } from '../../compartido/navegacion';
 import { useSesion } from '../../sesion/sesion';
 import { radio, useEstilos, useTema, type Paleta } from '../../compartido/tema';
@@ -57,6 +58,9 @@ export default function Inicio() {
           </Pressable>
         )}
         <Logo ancho={fijo ? 190 : 150} />
+        <View style={{ flex: 1, alignItems: 'flex-end' }}>
+          <PildoraDeRed />
+        </View>
       </View>
       <ScrollView style={{ flex: 1, backgroundColor: c.fondo }} contentContainerStyle={{ padding: MARGEN, alignItems: 'center' }}>
         <View style={{ width: disponible, gap: 20 }}>

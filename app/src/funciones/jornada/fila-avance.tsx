@@ -6,8 +6,11 @@ import { fechaHora } from '../../compartido/formato';
 import { radio, useEstilos, useTema, type Paleta } from '../../compartido/tema';
 import type { FilaAvance } from '../../datos/jornadas';
 
-/** `yo`: nombre de la cuenta, para escribir "vos" en lugar de repetirlo. `marcable`: se puede marcar a mano como encontrado. */
-export function FilaDeAvance({ item, yo, marcable, alTocar }: { item: FilaAvance; yo: string; marcable: boolean; alTocar: () => void }) {
+/**
+ * `yo`: nombre de la cuenta, para escribir "vos" en lugar de repetirlo. `marcable`: se puede marcar a mano como encontrado.
+ * `deshacible`: la lectura se puede deshacer (es propia, o quien mira es administrador, y la jornada sigue abierta).
+ */
+export function FilaDeAvance({ item, yo, marcable, deshacible, alTocar }: { item: FilaAvance; yo: string; marcable: boolean; deshacible: boolean; alTocar: () => void }) {
   const e = useEstilos(fabrica);
   const { c } = useTema();
   return (
@@ -26,6 +29,7 @@ export function FilaDeAvance({ item, yo, marcable, alTocar }: { item: FilaAvance
         )}
         {item.tambienVieron.length > 0 && <Text style={e.ayuda}>También lo vio {item.tambienVieron.map((n) => (n === yo ? 'vos' : n)).join(', ')}</Text>}
         {item.discrepancia && <Text style={e.alerta}>Revisar: las lecturas no coinciden (otro resultado u otra ubicación)</Text>}
+        {item.resuelta && <Text style={e.ayuda}>Discrepancia resuelta{item.notaResolucion ? `: ${item.notaResolucion}` : ''}</Text>}
         {item.fueraDeLugar && (
           <Text style={e.alerta}>
             Está en {item.ubicacionObservada}; el catálogo dice {item.ubicacionFisica ?? 'sin ubicación'}
@@ -33,9 +37,11 @@ export function FilaDeAvance({ item, yo, marcable, alTocar }: { item: FilaAvance
         )}
         {item.tipo === 'extra' && item.areaResponsable && <Text style={e.alerta}>Pertenece a {item.areaResponsable}</Text>}
         {item.resultado === 'hallazgo' && <Text style={e.alerta}>Hallazgo: se registró durante esta jornada</Text>}
-        {item.tipo === 'extra' && !item.bienId && item.resultado !== 'hallazgo' && <Text style={e.alerta}>No figura en el catálogo</Text>}
+        {item.tipo === 'extra' && !item.bienId && !item.sinEnviar && item.resultado !== 'hallazgo' && <Text style={e.alerta}>No figura en el catálogo</Text>}
+        {item.sinEnviar && <Text style={e.alerta}>Sin enviar: se guardó en el teléfono y se manda cuando haya conexión</Text>}
       </View>
       {marcable && <Ionicons name="checkmark-circle-outline" size={24} color={c.suave} />}
+      {deshacible && <Ionicons name="arrow-undo-outline" size={22} color={c.suave} />}
     </Pressable>
   );
 }

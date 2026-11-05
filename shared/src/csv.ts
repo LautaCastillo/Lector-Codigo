@@ -17,6 +17,8 @@ export interface FilaExportable {
   sincronizadoEn: Date;
   usuario: { cuenta: string; nombre: string | null };
   loteId: string | null;
+  /** Nombre de la jornada a la que pertenece el relevamiento, si es de una. */
+  jornada?: string | null;
   resultado: string;
   simbologia: string | null;
   valorLeido: string | null;
@@ -41,6 +43,7 @@ export const ENCABEZADOS = [
   'Registrado en el servidor',
   'Relevador',
   'Lote',
+  'Jornada',
   'Número patrimonial',
   'Descripción',
   'Resultado',
@@ -76,6 +79,9 @@ export const fechaParaCsv = (f: Date) => formatoFecha.format(f).replace(',', '')
 export function celda(valor: string | null | undefined): string {
   let texto = (valor ?? '').replace(/\r?\n/g, ' ').trim();
   if (/^[=+\-@\t]/.test(texto)) texto = `'${texto}`;
+  // Excel convierte en número lo que parece uno: 00304016 pasaría a 304016 y un código largo perdería dígitos.
+  // Con ="..." lo muestra como texto. Es seguro porque solo se arma con dígitos, nunca con lo que escribió la persona.
+  else if (/^0\d+$/.test(texto) || /^\d{13,}$/.test(texto)) texto = `="${texto}"`;
   return /[";,]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto;
 }
 
@@ -90,6 +96,7 @@ export function construirCsv(filas: FilaExportable[]): string {
       fechaParaCsv(f.sincronizadoEn),
       f.usuario.nombre ?? f.usuario.cuenta,
       f.loteId?.slice(0, 8),
+      f.jornada,
       f.bien?.numeroInventario,
       f.bien?.descripcion ?? f.descripcion,
       ETIQUETA_RESULTADO_CSV[f.resultado] ?? f.resultado,

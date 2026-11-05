@@ -8,12 +8,15 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollVie
 import { Etiquetas } from '../../../compartido/bien';
 import { Boton, Opciones } from '../../../compartido/ui';
 import { listarUbicaciones, obtenerBien } from '../../../datos/catalogo';
-import { subirRelevamientos } from '../../../datos/relevamientos';
+import { descartar, encolar, enviarPendientes, estadoDe } from '../../../datos/cola-envio';
+import { conLimite, estaSinRed } from '../../../datos/red';
 import { radio, useEstilos, useTema, type Paleta } from '../../../compartido/tema';
 import { mensajeDeError } from '../../../compartido/formato';
 import { comunes } from '../../../compartido/estilos';
 
 const LARGO_OBSERVACIONES = 500;
+/** Cuánto se espera al servidor antes de dar la lectura por guardada; si no llegó, queda en la cola y se envía sola. */
+const ESPERA_ENVIO_MS = 8000;
 type ModoUbicacion = 'catalogo' | 'otra';
 
 /** Registrar que se vio un bien, con su estado físico, la ubicación real y observaciones. */
@@ -33,6 +36,8 @@ export default function RegistrarRelevamiento() {
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [registrado, setRegistrado] = useState(false);
+  /** Quedó guardado en el teléfono pero todavía no llegó al servidor (sin conexión). */
+  const [guardado, setGuardado] = useState(false);
   // El identificador se genera una sola vez: si el envío falla y se reintenta, el servidor no duplica.
   const idCliente = useRef(Crypto.randomUUID());
   // Se toma la hora al abrir la pantalla: es cuando se vio el bien, no cuando se confirma.
@@ -81,16 +86,21 @@ export default function RegistrarRelevamiento() {
       relevadoEnDispositivo: horaVisto.current,
     };
     try {
-      const r = await subirRelevamientos([dto]);
-      if (r.rechazados.length) {
-        setError(r.rechazados[0]?.motivo ?? 'El servidor rechazó el relevamiento.');
+      // Se anota primero en el teléfono: sin conexión queda guardado y se envía solo cuando vuelva la señal.
+      await encolar(dto, `${bien.numeroInventario} · ${bien.descripcion ?? 'Sin descripción'}`);
+      if (!estaSinRed()) await conLimite(enviarPendientes(), ESPERA_ENVIO_MS).catch(() => undefined);
+      const estado = estadoDe(dto.idCliente);
+      if (estado.estado === 'rechazada') {
+        descartar([dto.idCliente]);
+        setError(estado.motivo);
       } else {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setGuardado(estado.estado === 'esperando');
         setRegistrado(true);
       }
     } catch (err) {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      setError(mensajeDeError(err, 'No se pudo registrar. Revisá la conexión y reintentá.'));
+      setError(mensajeDeError(err, 'No se pudo registrar.'));
     }
     setEnviando(false);
   };
@@ -114,11 +124,12 @@ export default function RegistrarRelevamiento() {
   if (registrado) {
     return (
       <View style={e.centro}>
-        <Ionicons name="checkmark-circle" size={72} color={c.ok} />
-        <Text style={e.tituloGrande}>Relevamiento registrado</Text>
+        <Ionicons name={guardado ? 'cloud-offline-outline' : 'checkmark-circle'} size={72} color={guardado ? c.accion : c.ok} />
+        <Text style={e.tituloGrande}>{guardado ? 'Relevamiento guardado' : 'Relevamiento registrado'}</Text>
         <Text style={e.suaveCentro}>
           {bien.numeroInventario} · {estado ?? 'sin estado declarado'}
           {ubicacionFinal ? `\n${ubicacionFinal}` : ''}
+          {guardado ? '\nSe guardó en el teléfono y se envía solo cuando haya conexión.' : ''}
         </Text>
         <View style={{ gap: 12, alignSelf: 'stretch', maxWidth: 420, width: '100%' }}>
           {jornadaId ? (

@@ -1,19 +1,27 @@
 // Los datos de una jornada para su pantalla: la jornada, el avance de todo el equipo (que se vuelve a pedir en vivo cada vez que
 // alguien relevó algo) y las listas ya separadas en pendientes, encontrados y fuera de lo esperado.
+// Sin conexión muestra la última copia del avance, con las lecturas de este teléfono que todavía no se enviaron.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RefreshControl } from 'react-native';
 import { mensajeDeError } from '../../compartido/formato';
 import { useTema } from '../../compartido/tema';
+import { useCola } from '../../datos/cola-envio';
 import { avanceDeJornada, obtenerJornada, suscribirseAJornada, type FilaAvance, type Jornada } from '../../datos/jornadas';
+import { useSesion } from '../../sesion/sesion';
+import { aplicarPendientes } from '../cola/cola';
 
 const masReciente = (a: FilaAvance, b: FilaAvance) => (b.relevadoEn ?? '').localeCompare(a.relevadoEn ?? '');
 
 export function useJornada(id: string) {
   const { c } = useTema();
+  const { perfil } = useSesion();
+  const { pendientes: sinEnviar, sinRed } = useCola();
+  const yo = perfil?.nombre ?? perfil?.cuenta ?? '';
   const [jornada, setJornada] = useState<Jornada | null>(null);
-  const [filas, setFilas] = useState<FilaAvance[] | null>(null);
+  const [delServidor, setFilas] = useState<FilaAvance[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actualizando, setActualizando] = useState(false);
+  const filas = useMemo(() => (delServidor ? aplicarPendientes(delServidor, sinEnviar, id, yo) : null), [delServidor, sinEnviar, id, yo]);
   // La cámara y el aviso de lectura necesitan el avance más reciente sin volver a crear sus funciones en cada cambio.
   const filasRef = useRef<FilaAvance[] | null>(null);
   filasRef.current = filas;
@@ -38,6 +46,14 @@ export function useJornada(id: string) {
     void cargar();
     return suscribirseAJornada(() => void cargar());
   }, [cargar]);
+
+  // Al volver la red, o cuando se envía lo que estaba en la cola, se pide el avance real.
+  const antes = useRef({ sinRed, cantidad: sinEnviar.length });
+  useEffect(() => {
+    const previo = antes.current;
+    antes.current = { sinRed, cantidad: sinEnviar.length };
+    if ((previo.sinRed && !sinRed) || sinEnviar.length < previo.cantidad) void cargar();
+  }, [sinRed, sinEnviar.length, cargar]);
 
   const esperadas = useMemo(() => (filas ?? []).filter((f) => f.tipo === 'esperado'), [filas]);
   const pendientes = useMemo(() => esperadas.filter((f) => !f.encontrado), [esperadas]);

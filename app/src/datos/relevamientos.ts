@@ -13,7 +13,7 @@ import {
 import { aBienDto, COLUMNAS_BIEN } from './catalogo';
 import { miId } from './cuentas';
 import { supabase } from './supabase';
-import { aIso, comprobar, ErrorApi, type Fila } from './util';
+import { aIso, comprobar, ErrorApi, esFalloDeRed, type Fila } from './util';
 
 export const COLUMNAS_RELEVAMIENTO = `*, bien:bien(${COLUMNAS_BIEN}), usuario:usuario(cuenta, nombre)`;
 /** Filas por pedido al insertar (la API corta a 1000 por pedido). */
@@ -148,6 +148,8 @@ export async function subirRelevamientos(items: RelevamientoDto[]): Promise<Resu
           resultado.registrados += nuevos;
           resultado.duplicados += 1 - nuevos;
         } catch (error) {
+          // Un corte de red no es un rechazo del servidor: se corta el envío para que quien llama reintente.
+          if (esFalloDeRed(error)) throw error;
           resultado.rechazados.push({ idCliente: t.idCliente, motivo: (error as { message?: string }).message ?? 'No se pudo registrar' });
         }
       }
@@ -160,9 +162,18 @@ export async function subirRelevamientos(items: RelevamientoDto[]): Promise<Resu
 export async function misRelevamientos(limite = 300): Promise<RelevamientoRegistradoDto[]> {
   const yo = await miId();
   const filas = comprobar(
-    await supabase.from('relevamiento').select(COLUMNAS_RELEVAMIENTO).eq('usuarioId', yo).order('relevadoEnDispositivo', { ascending: false }).limit(limite),
+    await supabase.from('relevamiento').select(COLUMNAS_RELEVAMIENTO).eq('usuarioId', yo).is('anuladoEn', null).order('relevadoEnDispositivo', { ascending: false }).limit(limite),
   ) as Fila[];
   return filas.map((f) => desdeTabla(f, yo));
+}
+
+/**
+ * Deshace una lectura: no se borra, se marca como anulada y deja de contar en las listas y en la jornada.
+ * Lo puede hacer quien la registró o un administrador, mientras la jornada (si la tiene) siga abierta.
+ */
+export async function anularRelevamiento(id: string): Promise<void> {
+  const { error } = await supabase.rpc('anular_relevamiento', { p_id: id });
+  if (error) throw new Error(error.message);
 }
 
 /** Los relevamientos de todo el equipo (cualquier cuenta activa los ve), del más reciente al más antiguo. */

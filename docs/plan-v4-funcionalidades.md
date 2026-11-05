@@ -16,9 +16,9 @@ Tamaños: **S** = una sesión de trabajo, **M** = unas pocas sesiones, **L** = r
 
 | # | Funcionalidad | Qué resuelve | Cómo | Tam. |
 |---|---|---|---|---|
-| 1 | **Deshacer una lectura** | Una lectura equivocada queda anotada y no se puede corregir. | La persona borra o anula sus propias lecturas mientras la jornada está abierta (función en la base, con auditoría; no se borra la fila, se la marca anulada). El avance ignora las anuladas. | S |
-| 2 | **Funcionamiento sin conexión e indicador de conexión** | Sótanos, depósitos y sedes del interior sin señal. Hoy no se puede relevar de forma compartida sin red. | Cola local de relevamientos con reintento automático (los `idCliente` ya hacen el envío idempotente); la jornada se guarda en el teléfono y se sincroniza al volver la red; indicador "N sin enviar". Nueva decisión sobre ADR 0004. | L |
-| 3 | **Cola de discrepancias** | El aviso "Revisar" no tiene salida: nadie resuelve cuál lectura vale. | Pantalla con los bienes de una jornada con lecturas que no coinciden; un supervisor elige la lectura válida y deja una nota. Se guarda quién resolvió y cuándo. | M |
+| 1 | **Deshacer una lectura** (hecho el 2/11/2026) | Una lectura equivocada queda anotada y no se puede corregir. | La persona borra o anula sus propias lecturas mientras la jornada está abierta (función en la base, con auditoría; no se borra la fila, se la marca anulada). El avance ignora las anuladas. | S |
+| 2 | **Funcionamiento sin conexión e indicador de conexión** (hecho el 2/11/2026, con alcance parcial: ver bitácora) | Sótanos, depósitos y sedes del interior sin señal. Hoy no se puede relevar de forma compartida sin red. | Cola local de relevamientos con reintento automático (los `idCliente` ya hacen el envío idempotente); la jornada se guarda en el teléfono y se sincroniza al volver la red; indicador "N sin enviar". Nueva decisión sobre ADR 0004. | L |
+| 3 | **Cola de discrepancias** (hecho el 2/11/2026) | El aviso "Revisar" no tiene salida: nadie resuelve cuál lectura vale. | Pantalla con los bienes de una jornada con lecturas que no coinciden; un supervisor elige la lectura válida y deja una nota. Se guarda quién resolvió y cuándo. | M |
 | 4 | **Dividir una jornada por sectores** | Dos relevadores recorren lo mismo. | Cada persona toma una ubicación o rango dentro de la jornada; las filas de otros sectores se atenúan. Solo organiza: no impide leer fuera del sector. | M |
 
 ## Etapa 2: lo que pide una auditoría

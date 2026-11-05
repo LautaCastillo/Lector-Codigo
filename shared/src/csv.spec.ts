@@ -6,6 +6,7 @@ const fila = (extra: Partial<FilaExportable> = {}): FilaExportable => ({
   sincronizadoEn: new Date('2026-10-23T12:05:00Z'),
   usuario: { cuenta: 'a@b.c', nombre: 'Ana Pérez' },
   loteId: '12345678-aaaa-bbbb-cccc-1234567890ab',
+  jornada: 'Planta baja',
   resultado: 'encontrado',
   simbologia: 'code39',
   valorLeido: '00006349',
@@ -30,6 +31,17 @@ describe('celda', () => {
     expect(celda('@usuario')).toBe("'@usuario");
     expect(celda('=HYPERLINK("http://x";"y")')).toBe('"\'=HYPERLINK(""http://x"";""y"")"');
   });
+  it('conserva los ceros a la izquierda y los códigos largos al abrir en Excel', () => {
+    expect(celda('00304016')).toBe('"=""00304016"""');
+    expect(celda('0304016')).toBe('"=""0304016"""');
+    expect(celda('7790001234567')).toBe('"=""7790001234567"""');
+  });
+  it('deja tal cual los números comunes y el texto', () => {
+    expect(celda('7790001')).toBe('7790001');
+    expect(celda('0')).toBe('0');
+    expect(celda('0A12')).toBe('0A12');
+    expect(celda('012 abc')).toBe('012 abc');
+  });
 });
 
 describe('hallazgos en el archivo', () => {
@@ -45,7 +57,7 @@ describe('hallazgos en el archivo', () => {
       simbologia: null,
     });
     const linea = construirCsv([hallazgo]).split('\r\n')[1];
-    expect(linea).toBe('23/10/2026 09:00;23/10/2026 09:05;Ana Pérez;12345678;;"Silla giratoria negra; sin etiqueta";Hallazgo;No identificado;H-AB12CD34;SN-123;;;Oficina 12;;Malo;;Falta una pata');
+    expect(linea).toBe('23/10/2026 09:00;23/10/2026 09:05;Ana Pérez;12345678;Planta baja;;"Silla giratoria negra; sin etiqueta";Hallazgo;No identificado;H-AB12CD34;SN-123;;;Oficina 12;;Malo;;Falta una pata');
   });
 });
 
@@ -63,8 +75,8 @@ describe('construirCsv', () => {
     const lineas = csv.split('\r\n');
     expect(csv.startsWith('﻿')).toBe(true);
     expect(lineas[0]).toBe(`﻿${ENCABEZADOS.join(';')}`);
-    expect(lineas[1]).toBe('23/10/2026 09:00;23/10/2026 09:05;Ana Pérez;12345678;00006349;FICHERO DE MESA;Encontrado;;;;00006349;CODE39;Oficina 12;ADMINCENTRAL;Malo;Bueno;Falta una pata');
-    expect(lineas[2]).toBe('23/10/2026 09:00;23/10/2026 09:05;Ana Pérez;12345678;;;No está en el catálogo;;;;7790001;EAN13;Oficina 12;;;;');
+    expect(lineas[1]).toBe('23/10/2026 09:00;23/10/2026 09:05;Ana Pérez;12345678;Planta baja;"=""00006349""";FICHERO DE MESA;Encontrado;;;;"=""00006349""";CODE39;Oficina 12;ADMINCENTRAL;Malo;Bueno;Falta una pata');
+    expect(lineas[2]).toBe('23/10/2026 09:00;23/10/2026 09:05;Ana Pérez;12345678;Planta baja;;;No está en el catálogo;;;;7790001;EAN13;Oficina 12;;;;');
     expect(csv.endsWith('\r\n')).toBe(true);
   });
   it('sin filas devuelve solo los encabezados', () => {

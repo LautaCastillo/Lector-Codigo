@@ -12,8 +12,12 @@ import { radio, useEstilos, useTema, type Paleta } from '../../../compartido/tem
 import { Barra, Boton, Chip, EstadoCarga, Opciones } from '../../../compartido/ui';
 import { useLector } from '../../../compartido/useLector';
 import { resolverEscaneo } from '../../../datos/catalogo';
+import { descartar, encolar, enviarPendientes, estadoDe, useCola } from '../../../datos/cola-envio';
 import { cerrarJornada, type FilaAvance } from '../../../datos/jornadas';
-import { subirRelevamientos } from '../../../datos/relevamientos';
+import { conLimite, estaSinRed, marcarRed } from '../../../datos/red';
+import { anularRelevamiento } from '../../../datos/relevamientos';
+import { esFalloDeRed } from '../../../datos/util';
+import { buscarEnFilas } from '../../../funciones/cola/cola';
 import { FilaDeAvance } from '../../../funciones/jornada/fila-avance';
 import { useJornada } from '../../../funciones/jornada/useJornada';
 import { useSesion } from '../../../sesion/sesion';
@@ -22,6 +26,19 @@ type Pestana = 'pendientes' | 'encontrados' | 'otros';
 type Aviso = { tipo: 'ok' | 'alerta' | 'error'; texto: string };
 
 const IGNORAR_REPETIDO_MS = 2000;
+/** Cuánto se espera al servidor antes de seguir leyendo; lo que no llegó queda en la cola y se envía solo. */
+const ESPERA_ENVIO_MS = 8000;
+const ESPERA_CATALOGO_MS = 8000;
+const SUFIJO = { enviada: '', guardada: ' Guardado en el teléfono: se envía cuando haya conexión.' } as const;
+
+/** Lo que hace falta saber de un bien para avisar al leerlo: sale de lo esperado de la jornada o del catálogo. */
+interface BienLeido {
+  id: string;
+  numeroInventario: string;
+  descripcion: string | null;
+  ubicacionFisica: string | null;
+  areaResponsable: string | null;
+}
 
 /** Una jornada compartida: lo esperado del área o la ubicación, el avance de todo el equipo y el escaneo. Se actualiza en vivo. */
 export default function PantallaJornada() {
@@ -32,6 +49,7 @@ export default function PantallaJornada() {
   const { c } = useTema();
   const [permiso, pedirPermiso] = useCameraPermissions();
   const { jornada, filas, filasRef, error, cargar, controlRecarga, esperadas, pendientes, encontradas, otros, ubicaciones, porcentaje } = useJornada(id);
+  const { pendientes: enCola } = useCola();
   const [pestana, setPestana] = useState<Pestana>('pendientes');
   const [camara, setCamara] = useState(false);
   const [ubicacionActual, setUbicacionActual] = useState<string | null>(null);
@@ -47,12 +65,16 @@ export default function PantallaJornada() {
     if (jornada?.tipo === 'ubicacion') setUbicacionActual(jornada.alcance);
   }, [jornada]);
 
-  /** Registra un relevamiento de esta jornada. */
+  /**
+   * Registra un relevamiento de esta jornada. Se anota primero en el teléfono y se manda enseguida; sin conexión queda
+   * guardado y se envía solo. Devuelve `guardada` cuando todavía no llegó al servidor. Lanza si el servidor la rechaza.
+   */
   const registrar = useCallback(
-    async (datos: { resultado: 'encontrado' | 'no_encontrado'; numeroInventario?: string; simbologia?: string; valorLeido?: string }) => {
-      const r = await subirRelevamientos([
+    async (datos: { resultado: 'encontrado' | 'no_encontrado'; numeroInventario?: string; simbologia?: string; valorLeido?: string }, titulo: string, porResolver = false) => {
+      const idCliente = Crypto.randomUUID();
+      await encolar(
         {
-          idCliente: Crypto.randomUUID(),
+          idCliente,
           resultado: datos.resultado,
           relevadoEnDispositivo: new Date().toISOString(),
           jornadaId: id,
@@ -61,8 +83,17 @@ export default function PantallaJornada() {
           ...(datos.valorLeido ? { valorLeido: datos.valorLeido } : {}),
           ...(ubicacionActual ? { ubicacionObservada: ubicacionActual } : {}),
         },
-      ]);
-      if (r.rechazados.length) throw new Error(r.rechazados[0]?.motivo ?? 'No se pudo registrar.');
+        titulo,
+        porResolver,
+      );
+      // Con la red caída no se espera. Con red, se espera un rato corto: si el envío tarda, la cámara no se frena.
+      if (!estaSinRed()) await conLimite(enviarPendientes(), ESPERA_ENVIO_MS).catch(() => undefined);
+      const resultado = estadoDe(idCliente);
+      if (resultado.estado === 'rechazada') {
+        descartar([idCliente]);
+        throw new Error(resultado.motivo);
+      }
+      return resultado.estado === 'enviada' ? 'enviada' : 'guardada';
     },
     [id, ubicacionActual],
   );
@@ -76,34 +107,59 @@ export default function PantallaJornada() {
       // llegó primero (lecturas casi simultáneas, antes de que llegara el cambio en vivo), se avisa igual.
       let registrado: { id: string; titulo: string } | null = null;
       try {
-        const r = await resolverEscaneo(type, data);
-        if (!r.encontrado || !r.bien) {
-          await registrar({ resultado: 'no_encontrado', simbologia: type, valorLeido: data });
-          setAviso({ tipo: 'alerta', texto: `El código ${data} no está en el catálogo. Quedó anotado.` });
+        // Primero contra lo esperado de la jornada, sin red; solo lo desconocido se consulta al catálogo.
+        const local = buscarEnFilas(filasRef.current ?? [], type, data);
+        let bien: BienLeido | null = local
+          ? { id: local.bienId!, numeroInventario: local.numeroInventario!, descripcion: local.descripcion, ubicacionFisica: local.ubicacionFisica, areaResponsable: local.areaResponsable }
+          : null;
+        let sinCatalogo = false;
+        if (!bien) {
+          if (estaSinRed()) sinCatalogo = true;
+          else {
+            try {
+              const r = await conLimite(resolverEscaneo(type, data), ESPERA_CATALOGO_MS);
+              bien = r.encontrado && r.bien ? r.bien : null;
+            } catch (err) {
+              if (!esFalloDeRed(err)) throw err;
+              marcarRed(false);
+              sinCatalogo = true;
+            }
+          }
+        }
+
+        if (sinCatalogo) {
+          await registrar({ resultado: 'no_encontrado', simbologia: type, valorLeido: data }, `Código ${data}`, true);
+          setAviso({ tipo: 'alerta', texto: `Sin conexión: el código ${data} quedó guardado en el teléfono y se comprobará al enviarlo.` });
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        } else if (!bien) {
+          const estado = await registrar({ resultado: 'no_encontrado', simbologia: type, valorLeido: data }, `Código ${data}`);
+          setAviso({ tipo: 'alerta', texto: `El código ${data} no está en el catálogo. Quedó anotado.${SUFIJO[estado]}` });
           void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         } else {
-          const bien = r.bien;
-          const fila = filasRef.current?.find((f) => f.tipo === 'esperado' && f.bienId === bien.id);
-          const titulo = bien.descripcion ?? bien.numeroInventario;
+          const bienLeido = bien;
+          const fila = filasRef.current?.find((f) => f.tipo === 'esperado' && f.bienId === bienLeido.id);
+          const titulo = bienLeido.descripcion ?? bienLeido.numeroInventario;
           if (fila?.encontrado && fila.relevador === yo) {
             setAviso({ tipo: 'alerta', texto: `Ya lo relevaste: ${titulo}` });
             void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
           } else {
-            await registrar({ resultado: 'encontrado', numeroInventario: bien.numeroInventario, simbologia: type, valorLeido: data });
-            if (fila && !fila.encontrado) registrado = { id: bien.id, titulo };
+            const estado = await registrar({ resultado: 'encontrado', numeroInventario: bienLeido.numeroInventario, simbologia: type, valorLeido: data }, `${bienLeido.numeroInventario} · ${titulo}`);
+            if (fila && !fila.encontrado && estado === 'enviada') registrado = { id: bienLeido.id, titulo };
+            const sufijo = SUFIJO[estado];
             if (!fila) {
-              setAviso({ tipo: 'alerta', texto: `${titulo} es de otra área: ${bien.areaResponsable ?? 'sin área'}. Quedó anotado.` });
+              setAviso({ tipo: 'alerta', texto: `${titulo} es de otra área: ${bienLeido.areaResponsable ?? 'sin área'}. Quedó anotado.${sufijo}` });
             } else if (fila.encontrado) {
-              setAviso({ tipo: 'alerta', texto: `${titulo}: ya lo había relevado ${fila.relevador}. Figura él; tu lectura quedó anotada.` });
-            } else if (ubicacionActual && bien.ubicacionFisica && ubicacionActual !== bien.ubicacionFisica) {
-              setAviso({ tipo: 'alerta', texto: `Encontrado: ${titulo}. Ojo: según el catálogo figura en ${bien.ubicacionFisica}.` });
+              setAviso({ tipo: 'alerta', texto: `${titulo}: ya lo había relevado ${fila.relevador}. Figura él; tu lectura quedó anotada.${sufijo}` });
+            } else if (ubicacionActual && bienLeido.ubicacionFisica && ubicacionActual !== bienLeido.ubicacionFisica) {
+              setAviso({ tipo: 'alerta', texto: `Encontrado: ${titulo}. Ojo: según el catálogo figura en ${bienLeido.ubicacionFisica}.${sufijo}` });
             } else {
-              setAviso({ tipo: 'ok', texto: `Encontrado: ${titulo}` });
+              setAviso({ tipo: estado === 'enviada' ? 'ok' : 'alerta', texto: `Encontrado: ${titulo}${sufijo}` });
             }
             void Haptics.notificationAsync(fila && !fila.encontrado ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning);
           }
         }
-        const nuevas = await cargar();
+        // Sin red no se vuelve a pedir el avance: la pantalla ya muestra la lectura con lo guardado en el teléfono.
+        const nuevas = estaSinRed() ? null : await cargar();
         const propio = registrado ? nuevas?.find((f) => f.tipo === 'esperado' && f.bienId === registrado!.id) : undefined;
         if (registrado && propio && propio.relevador !== yo) {
           setAviso({ tipo: 'alerta', texto: `${registrado.titulo}: lo relevó primero ${propio.relevador}. Se anotó también tu lectura.` });
@@ -136,9 +192,9 @@ export default function PantallaJornada() {
         text: 'Marcar como encontrado',
         onPress: async () => {
           try {
-            await registrar({ resultado: 'encontrado', numeroInventario: fila.numeroInventario! });
-            setAviso({ tipo: 'ok', texto: `Marcado a mano: ${fila.descripcion ?? fila.numeroInventario}` });
-            await cargar();
+            const estado = await registrar({ resultado: 'encontrado', numeroInventario: fila.numeroInventario! }, `${fila.numeroInventario} · ${fila.descripcion ?? 'Sin descripción'}`);
+            setAviso({ tipo: estado === 'enviada' ? 'ok' : 'alerta', texto: `Marcado a mano: ${fila.descripcion ?? fila.numeroInventario}${SUFIJO[estado]}` });
+            if (!estaSinRed()) await cargar();
           } catch (err) {
             setAviso({ tipo: 'error', texto: mensajeDeError(err, 'No se pudo registrar.') });
           }
@@ -147,8 +203,12 @@ export default function PantallaJornada() {
     ], { cancelable: true }); // Android admite tres botones: se cancela tocando fuera del cuadro.
   };
 
+  const sinEnviarAca = enCola.filter((p) => p.relevamiento.jornadaId === id).length;
+
   const confirmarCierre = () =>
-    Alert.alert('¿Cerrar la jornada?', `Quedan ${pendientes.length} bienes sin relevar. Una jornada cerrada ya no admite lecturas.`, [
+    sinEnviarAca > 0
+      ? Alert.alert('Hay lecturas sin enviar', `${sinEnviarAca} lectura${sinEnviarAca === 1 ? '' : 's'} de este teléfono no llegó${sinEnviarAca === 1 ? '' : 'ron'} al servidor. Esperá a que se envíen${estaSinRed() ? ' (hace falta conexión)' : ''} antes de cerrar la jornada: una jornada cerrada ya no admite lecturas.`)
+      : Alert.alert('¿Cerrar la jornada?', `Quedan ${pendientes.length} bienes sin relevar. Una jornada cerrada ya no admite lecturas.`, [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Cerrar',
@@ -165,11 +225,41 @@ export default function PantallaJornada() {
       },
     ]);
 
-  /** Tocar una fila: marcarla a mano si está pendiente; si no, abrir la ficha del bien. */
+  /** Deshace una lectura equivocada: queda anulada (no cuenta) y, si había otra lectura del mismo bien, pasa a figurar esa. */
+  const deshacer = (item: FilaAvance) => {
+    const titulo = item.descripcion ?? item.numeroInventario ?? 'esta lectura';
+    Alert.alert(titulo, `${item.numeroInventario ?? item.codigoProvisorio ?? ''}\nSe deshace la lectura de ${item.relevador === yo ? 'tu cuenta' : item.relevador}.`.trim(), [
+      {
+        text: 'Deshacer lectura',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await anularRelevamiento(item.relevamientoId!);
+            setAviso({ tipo: 'ok', texto: `Lectura deshecha: ${titulo}` });
+            await cargar();
+          } catch (err) {
+            setAviso({ tipo: 'error', texto: mensajeDeError(err, 'No se pudo deshacer la lectura.') });
+          }
+        },
+      },
+      ...(item.numeroInventario
+        ? [{ text: 'Ver ficha', onPress: () => router.push({ pathname: '/bien/[numero]', params: { numero: item.numeroInventario! } }) }]
+        : []),
+    ], { cancelable: true });
+  };
+
+  /** Tocar una fila: marcarla a mano si está pendiente; deshacer la lectura propia (o cualquiera, si es administrador); si no, abrir la ficha. */
+  const puedeDeshacer = (item: FilaAvance) =>
+    !!abierta && !!item.relevamientoId && (item.relevador === yo || perfil?.rol === 'administrador') && (item.encontrado || item.tipo === 'extra');
+
   const alTocarFila = (item: FilaAvance) => {
     if (item.tipo === 'esperado' && !item.encontrado && abierta) marcarAMano(item);
+    else if (puedeDeshacer(item)) deshacer(item);
     else if (item.numeroInventario) router.push({ pathname: '/bien/[numero]', params: { numero: item.numeroInventario } });
   };
+
+  const porRevisar = esperadas.filter((f) => f.discrepancia).length;
+  const resueltas = esperadas.filter((f) => f.resuelta).length;
 
   const lista = pestana === 'pendientes' ? pendientes : pestana === 'encontrados' ? encontradas : otros;
 
@@ -191,6 +281,14 @@ export default function PantallaJornada() {
           </Text>
         )}
       </View>
+
+      {(porRevisar > 0 || resueltas > 0) && (
+        <Boton
+          texto={porRevisar > 0 ? `Revisar ${porRevisar} discrepancia${porRevisar === 1 ? '' : 's'}` : `Ver ${resueltas} discrepancia${resueltas === 1 ? '' : 's'} resuelta${resueltas === 1 ? '' : 's'}`}
+          variante={porRevisar > 0 ? 'primario' : 'secundario'}
+          onPress={() => router.push({ pathname: '/jornada/discrepancias', params: { id } })}
+        />
+      )}
 
       {abierta && (
         <View style={{ gap: 10 }}>
@@ -265,7 +363,7 @@ export default function PantallaJornada() {
       ListEmptyComponent={<Text style={e.ayuda}>{!filas ? '' : pestana === 'pendientes' ? 'No queda nada pendiente.' : 'Todavía no hay nada acá.'}</Text>}
       refreshControl={controlRecarga}
       renderItem={({ item }) => (
-        <FilaDeAvance item={item} yo={yo} marcable={item.tipo === 'esperado' && !item.encontrado && !!abierta} alTocar={() => alTocarFila(item)} />
+        <FilaDeAvance item={item} yo={yo} marcable={item.tipo === 'esperado' && !item.encontrado && !!abierta} deshacible={puedeDeshacer(item)} alTocar={() => alTocarFila(item)} />
       )}
     />
   );
