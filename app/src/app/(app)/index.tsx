@@ -6,6 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMenu } from '../../compartido/menu';
 import { Barra, Entrada, Logo } from '../../compartido/ui';
 import { type Jornada, listarJornadas } from '../../datos/jornadas';
+import { contarMisTareasPendientes } from '../../datos/tareas';
+import { CampanaDeAvisos } from '../../funciones/avisos/avisos';
 import { PildoraDeRed } from '../../funciones/cola/pildora-de-red';
 import { ESCANEAR, SECCIONES, type Funcion } from '../../compartido/navegacion';
 import { useSesion } from '../../sesion/sesion';
@@ -28,6 +30,7 @@ export default function Inicio() {
   const nombre = perfil?.nombre?.split(' ')[0] ?? perfil?.cuenta;
   const esAdmin = perfil?.rol === 'administrador';
   const [jornadas, setJornadas] = useState<Jornada[]>([]);
+  const [tareas, setTareas] = useState(0);
 
   // Sin las jornadas el inicio sigue sirviendo: si la consulta falla, la franja simplemente no aparece.
   useFocusEffect(
@@ -35,6 +38,10 @@ export default function Inicio() {
       listarJornadas('abierta')
         .then(setJornadas)
         .catch(() => setJornadas([]));
+      // Igual que las jornadas: si falla la consulta, el aviso simplemente no aparece.
+      contarMisTareasPendientes()
+        .then(setTareas)
+        .catch(() => setTareas(0));
     }, []),
   );
 
@@ -58,8 +65,9 @@ export default function Inicio() {
           </Pressable>
         )}
         <Logo ancho={fijo ? 190 : 150} />
-        <View style={{ flex: 1, alignItems: 'flex-end' }}>
+        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
           <PildoraDeRed />
+          <CampanaDeAvisos />
         </View>
       </View>
       <ScrollView style={{ flex: 1, backgroundColor: c.fondo }} contentContainerStyle={{ padding: MARGEN, alignItems: 'center' }}>
@@ -83,6 +91,18 @@ export default function Inicio() {
               <Ionicons name="chevron-forward" size={26} color={c.sobrePrimario} />
             </Pressable>
           </Entrada>
+
+          {tareas > 0 && (
+            <Entrada orden={2}>
+              <Pressable accessibilityRole="button" onPress={() => router.push('/tareas')} style={({ pressed }) => [e.tareas, pressed && { opacity: 0.85 }]}>
+                <Ionicons name="checkbox-outline" size={26} color={c.accion} />
+                <Text style={e.tareasTexto}>
+                  Tenés {tareas} tarea{tareas === 1 ? '' : 's'} pendiente{tareas === 1 ? '' : 's'}
+                </Text>
+                <Ionicons name="chevron-forward" size={20} color={c.suave} />
+              </Pressable>
+            </Entrada>
+          )}
 
           {jornadas.length > 0 && (
             <Entrada orden={2}>
@@ -162,6 +182,8 @@ const fabrica = (c: Paleta) => ({
   escanearTitulo: { fontSize: 24, fontWeight: '800', color: c.sobrePrimario },
   escanearDetalle: { fontSize: 14, color: c.celeste },
   jornada: { gap: 6, padding: 14, borderRadius: radio, backgroundColor: c.superficie, borderWidth: 1, borderColor: c.borde },
+  tareas: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: radio, backgroundColor: c.superficie, borderWidth: 1.5, borderColor: c.accion },
+  tareasTexto: { flex: 1, fontSize: 16, fontWeight: '700', color: c.titulo },
   jornadaNombre: { fontSize: 16, fontWeight: '700', color: c.titulo },
   enlace: { fontSize: 15, fontWeight: '600', color: c.accion },
   grilla: { flexDirection: 'row', flexWrap: 'wrap', gap: SEPARACION },

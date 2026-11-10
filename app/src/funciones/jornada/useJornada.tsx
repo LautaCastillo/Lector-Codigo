@@ -56,11 +56,19 @@ export function useJornada(id: string) {
   }, [sinRed, sinEnviar.length, cargar]);
 
   const esperadas = useMemo(() => (filas ?? []).filter((f) => f.tipo === 'esperado'), [filas]);
-  const pendientes = useMemo(() => esperadas.filter((f) => !f.encontrado), [esperadas]);
+  // Un bien con situación (en reparación, para baja, prestado) que no se encontró queda "apartado": no es un pendiente ni cuenta como esperado.
+  // Los que ya faltaron en más jornadas seguidas van primero.
+  const repiten = (f: FilaAvance) => f.vecesSinEncontrar ?? 0;
+  const pendientes = useMemo(
+    () => esperadas.filter((f) => !f.encontrado && !f.situacion).sort((a, b) => repiten(b) - repiten(a) || (a.numeroInventario ?? '').localeCompare(b.numeroInventario ?? '')),
+    [esperadas],
+  );
+  const apartadas = useMemo(() => esperadas.filter((f) => !f.encontrado && !!f.situacion), [esperadas]);
   const encontradas = useMemo(() => esperadas.filter((f) => f.encontrado).sort(masReciente), [esperadas]);
   const otros = useMemo(() => (filas ?? []).filter((f) => f.tipo === 'extra').sort(masReciente), [filas]);
   const ubicaciones = useMemo(() => [...new Set(esperadas.map((f) => f.ubicacionFisica).filter((u): u is string => !!u))].sort(), [esperadas]);
-  const porcentaje = esperadas.length > 0 ? Math.round((encontradas.length / esperadas.length) * 100) : 0;
+  const contables = esperadas.length - apartadas.length;
+  const porcentaje = contables > 0 ? Math.round((encontradas.length / contables) * 100) : 0;
 
   const controlRecarga = (
     <RefreshControl
@@ -74,5 +82,5 @@ export function useJornada(id: string) {
     />
   );
 
-  return { jornada, filas, filasRef, error, cargar, controlRecarga, esperadas, pendientes, encontradas, otros, ubicaciones, porcentaje };
+  return { jornada, filas, filasRef, error, cargar, controlRecarga, esperadas, contables, pendientes, apartadas, encontradas, otros, ubicaciones, porcentaje };
 }

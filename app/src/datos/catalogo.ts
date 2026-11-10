@@ -15,7 +15,7 @@ import {
 import { supabase } from './supabase';
 import { aIso, comprobar, ErrorApi, type Fila } from './util';
 
-const MAX_RESULTADOS = 30;
+export const MAX_RESULTADOS = 50;
 /** Tope de bienes esperados por ubicación en un lote. */
 const MAX_ESPERADOS = 1000;
 const LARGO_MINIMO_BUSQUEDA = 2;
@@ -87,24 +87,46 @@ export async function buscarPorInventario(numero: string): Promise<BienDetalleDt
   return fila ? aDetalle(fila) : null;
 }
 
-/** Búsqueda manual por número, número anterior, descripción, catálogo o ubicación. */
-export async function buscarBienes(texto: string): Promise<BienDto[]> {
+/** Filtros que se combinan con el texto de la búsqueda (o la reemplazan): cada uno acota el resultado. */
+export interface FiltrosBusqueda {
+  area?: string | null;
+  estado?: string | null;
+}
+
+/**
+ * Búsqueda manual por número, número anterior, número de serie, descripción, responsable, catálogo o ubicación, y/o por área y estado.
+ * Alcanza con un filtro solo, sin texto. Devuelve hasta `MAX_RESULTADOS` bienes.
+ */
+export async function buscarBienes(texto: string, filtros: FiltrosBusqueda = {}): Promise<BienDto[]> {
   // Se quitan los caracteres que tienen significado en los filtros de la API (comas, paréntesis, comodines).
   const q = texto.replace(/[%*,()\\"]/g, ' ').trim();
-  if (q.length < LARGO_MINIMO_BUSQUEDA) return [];
-  const candidatos = candidatosInventario(q).map((c) => c.replace(/[^A-Za-z0-9]/g, '')).filter(Boolean);
-  const filtros = [
-    candidatos.length ? `numeroInventario.in.(${candidatos.join(',')})` : null,
-    `numeroInventario.ilike.*${q}*`,
-    `numeroAnterior.ilike.*${q}*`,
-    `descripcion.ilike.*${q}*`,
-    `catalogo.ilike.*${q}*`,
-    `ubicacionFisica.ilike.*${q}*`,
-  ].filter(Boolean);
-  const filas = comprobar(
-    await supabase.from('bien').select(COLUMNAS_BIEN).or(filtros.join(',')).order('numeroInventario', { ascending: true }).limit(MAX_RESULTADOS),
-  ) as Fila[];
+  const hayTexto = q.length >= LARGO_MINIMO_BUSQUEDA;
+  if (!hayTexto && !filtros.area && !filtros.estado) return [];
+  let consulta = supabase.from('bien').select(COLUMNAS_BIEN);
+  if (filtros.area) consulta = consulta.eq('areaResponsable', filtros.area);
+  if (filtros.estado) consulta = consulta.eq('estadoBien', filtros.estado);
+  if (hayTexto) {
+    const candidatos = candidatosInventario(q).map((c) => c.replace(/[^A-Za-z0-9]/g, '')).filter(Boolean);
+    const coincidencias = [
+      candidatos.length ? `numeroInventario.in.(${candidatos.join(',')})` : null,
+      `numeroInventario.ilike.*${q}*`,
+      `numeroAnterior.ilike.*${q}*`,
+      `numeroSerie.ilike.*${q}*`,
+      `descripcion.ilike.*${q}*`,
+      `responsableUso.ilike.*${q}*`,
+      `catalogo.ilike.*${q}*`,
+      `ubicacionFisica.ilike.*${q}*`,
+    ].filter(Boolean);
+    consulta = consulta.or(coincidencias.join(','));
+  }
+  const filas = comprobar(await consulta.order('numeroInventario', { ascending: true }).limit(MAX_RESULTADOS)) as Fila[];
   return filas.map(aBienDto);
+}
+
+/** Los estados del bien que figuran en el catálogo, con su cantidad, del más frecuente al menos frecuente. */
+export async function listarEstados(): Promise<{ nombre: string; cantidad: number }[]> {
+  const filas = (comprobar(await supabase.rpc('estados_catalogo')) ?? []) as { nombre: string; cantidad: number | string }[];
+  return filas.map((f) => ({ nombre: f.nombre, cantidad: Number(f.cantidad) }));
 }
 
 /** Ubicaciones físicas del catálogo con su cantidad de bienes, para elegir dónde hacer un lote. */

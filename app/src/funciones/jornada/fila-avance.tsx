@@ -2,7 +2,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text, View } from 'react-native';
 import { comunes } from '../../compartido/estilos';
-import { fechaHora } from '../../compartido/formato';
+import { ETIQUETA_SITUACION, fechaHora } from '../../compartido/formato';
 import { radio, useEstilos, useTema, type Paleta } from '../../compartido/tema';
 import type { FilaAvance } from '../../datos/jornadas';
 
@@ -28,7 +28,18 @@ export function FilaDeAvance({ item, yo, marcable, deshacible, alTocar }: { item
           </Text>
         )}
         {item.tambienVieron.length > 0 && <Text style={e.ayuda}>También lo vio {item.tambienVieron.map((n) => (n === yo ? 'vos' : n)).join(', ')}</Text>}
-        {item.discrepancia && <Text style={e.alerta}>Revisar: las lecturas no coinciden (otro resultado u otra ubicación)</Text>}
+        {!item.encontrado && item.vecesSinEncontrar > 0 && (
+          <Text style={e.alerta}>
+            {item.vecesSinEncontrar === 1 ? 'No se encontró en la jornada anterior' : `No se encontró en las últimas ${item.vecesSinEncontrar} jornadas seguidas`}
+          </Text>
+        )}
+        {item.situacion && (
+          <Text style={e.alerta}>
+            {ETIQUETA_SITUACION[item.situacion]}
+            {item.motivoSituacion ? `: ${item.motivoSituacion}` : ''}
+          </Text>
+        )}
+        {item.discrepancia &&<Text style={e.alerta}>Revisar: las lecturas no coinciden (otro resultado u otra ubicación)</Text>}
         {item.resuelta && <Text style={e.ayuda}>Discrepancia resuelta{item.notaResolucion ? `: ${item.notaResolucion}` : ''}</Text>}
         {item.fueraDeLugar && (
           <Text style={e.alerta}>

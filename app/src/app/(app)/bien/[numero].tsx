@@ -2,15 +2,18 @@ import { Ionicons } from '@expo/vector-icons';
 import type { BienDetalleDto, CambioBienDto, RelevamientoRegistradoDto } from '@patrimonio/shared';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { ChipResultado, Dato, Etiquetas, Seccion } from '../../../compartido/bien';
 import { Boton } from '../../../compartido/ui';
 import { historialBien, obtenerBien } from '../../../datos/catalogo';
 import { relevamientosDeBien } from '../../../datos/relevamientos';
+import { situacionesDeBien, type SituacionDeBien } from '../../../datos/situaciones';
+import { Comentarios } from '../../../funciones/comentarios/comentarios';
 import { ErrorApi } from '../../../datos/util';
-import { ETIQUETA_CAMPO, fechaCorta, fechaHora, mensajeDeError, moneda, valorLegible } from '../../../compartido/formato';
+import { useSesion } from '../../../sesion/sesion';
+import { ETIQUETA_CAMPO, ETIQUETA_SITUACION, fechaCorta, fechaHora, mensajeDeError, moneda, valorLegible } from '../../../compartido/formato';
 import { radio, useEstilos, useTema, type Paleta } from '../../../compartido/tema';
 
 /** Ficha de un bien del catálogo (responsable, ubicación, estado), sus últimos relevamientos y su historial de cambios. */
@@ -22,6 +25,8 @@ export default function FichaBien() {
   const [bien, setBien] = useState<BienDetalleDto | null>(null);
   const [historial, setHistorial] = useState<CambioBienDto[] | null>(null);
   const [ultimos, setUltimos] = useState<RelevamientoRegistradoDto[] | null>(null);
+  const [situaciones, setSituaciones] = useState<SituacionDeBien[] | null>(null);
+  const { perfil } = useSesion();
   const [error, setError] = useState<string | null>(null);
   const [actualizando, setActualizando] = useState(false);
   const [copiado, setCopiado] = useState(false);
@@ -34,15 +39,21 @@ export default function FichaBien() {
       // El historial es secundario: si falla, la ficha se muestra igual.
       historialBien(ficha.numeroInventario).then(setHistorial).catch(() => setHistorial(null));
       relevamientosDeBien(ficha.numeroInventario).then(setUltimos).catch(() => setUltimos(null));
+      situacionesDeBien(ficha.id).then(setSituaciones).catch(() => setSituaciones(null));
     } catch (err) {
       setBien(null);
       setError(err instanceof ErrorApi && err.estado === 404 ? 'Este bien no está en el catálogo.' : mensajeDeError(err, 'No se pudo cargar la ficha.'));
     }
   }, [numero]);
 
-  useEffect(() => {
-    void cargar();
-  }, [cargar]);
+  // Al volver de declarar una situación se vuelve a pedir la ficha.
+  useFocusEffect(
+    useCallback(() => {
+      void cargar();
+    }, [cargar]),
+  );
+
+  const vigente = situaciones?.find((s) => s.vigente) ?? null;
 
   const copiar = async () => {
     if (!bien) return;
@@ -98,13 +109,61 @@ export default function FichaBien() {
           <Text style={e.descripcion}>{bien.descripcion ?? 'Sin descripción'}</Text>
           {bien.responsableUso && <Text style={e.responsable}>Responsable: {bien.responsableUso}</Text>}
           <Etiquetas bien={bien} />
+          {vigente && (
+            <View style={[e.situacion, { backgroundColor: c.accion }]} accessibilityLabel={`${ETIQUETA_SITUACION[vigente.situacion]}: ${vigente.motivo}`}>
+              <Text style={e.situacionTexto}>
+                {ETIQUETA_SITUACION[vigente.situacion]} · {vigente.motivo}
+              </Text>
+            </View>
+          )}
           <Boton texto="Registrar relevamiento" onPress={() => router.push({ pathname: '/relevamiento/nuevo', params: { numero: bien.numeroInventario } })} />
+          <Boton texto="Ver la historia del bien" variante="secundario" onPress={() => router.push({ pathname: '/historia/[numero]', params: { numero: bien.numeroInventario } })} />
         </View>
 
         <Seccion titulo="Ubicación y responsable">
           <Dato etiqueta="Ubicación física" valor={bien.ubicacionFisica} />
           <Dato etiqueta="Área responsable" valor={bien.areaResponsable} />
           <Dato etiqueta="Responsable de uso" valor={bien.responsableUso} />
+        </Seccion>
+
+        <Seccion
+          titulo="Situación administrativa"
+          inicialAbierta={!!vigente}
+          resumen={situaciones === null ? undefined : vigente ? ETIQUETA_SITUACION[vigente.situacion] : 'Sin situación declarada'}
+        >
+          {situaciones === null ? (
+            <Text style={e.vacio}>No se pudo cargar la situación.</Text>
+          ) : situaciones.length === 0 ? (
+            <Text style={e.vacio}>El bien no tiene una situación declarada (en reparación, para baja o prestado).</Text>
+          ) : (
+            situaciones.map((s) => (
+              <View key={s.id} style={e.relevamiento}>
+                <View style={{ flex: 1, gap: 3 }}>
+                  <Text style={e.cambioTitulo}>
+                    {ETIQUETA_SITUACION[s.situacion]}
+                    {s.vigente ? ' · vigente' : ''}
+                  </Text>
+                  <Text style={e.cambioDetalle}>{s.motivo}</Text>
+                  <Text style={e.cambioDetalle}>
+                    Declarada por {s.declaradaPor} el {fechaHora(s.declaradaEn)}
+                  </Text>
+                  {s.levantadaEn && (
+                    <Text style={e.cambioDetalle}>
+                      Levantada por {s.levantadaPor} el {fechaHora(s.levantadaEn)}
+                      {s.motivoLevantada ? `: ${s.motivoLevantada}` : ''}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            ))
+          )}
+          {perfil?.rol === 'administrador' && (
+            <Boton texto={vigente ? 'Cambiar o levantar la situación' : 'Declarar una situación'} variante="secundario" onPress={() => router.push({ pathname: '/situacion/[numero]', params: { numero: bien.numeroInventario } })} />
+          )}
+        </Seccion>
+
+        <Seccion titulo="Comentarios" resumen="Notas del equipo sobre este bien">
+          <Comentarios destino={{ bienId: bien.id }} />
         </Seccion>
 
         <Seccion titulo="Datos del catálogo (SIU)" resumen={bien.catalogo ?? undefined}>
@@ -220,6 +279,8 @@ const fabrica = (c: Paleta) => ({
   descripcion: { fontSize: 16, color: c.texto, lineHeight: 22 },
   responsable: { fontSize: 15, fontWeight: '600', color: c.texto },
   pie: { fontSize: 13, color: c.suave },
+  situacion: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: radio },
+  situacionTexto: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
   vacio: { fontSize: 15, color: c.suave },
   relevamiento: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: 1, borderTopColor: c.borde },
   flecha: { fontSize: 28, color: c.suave },

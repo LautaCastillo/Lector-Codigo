@@ -61,6 +61,7 @@ export function aplicarPendientes(filas: FilaAvance[], pendientes: Pendiente[], 
       esperada.ubicacionObservada = r.ubicacionObservada ?? null;
       esperada.fueraDeLugar = !!r.ubicacionObservada && !!esperada.ubicacionFisica && r.ubicacionObservada !== esperada.ubicacionFisica;
       esperada.lecturas = 1;
+      esperada.vecesSinEncontrar = 0;
       esperada.sinEnviar = true;
       continue;
     }
@@ -86,6 +87,9 @@ export function aplicarPendientes(filas: FilaAvance[], pendientes: Pendiente[], 
       codigoProvisorio: null,
       resuelta: false,
       notaResolucion: null,
+      situacion: null,
+      motivoSituacion: null,
+      vecesSinEncontrar: 0,
       sinEnviar: true,
     });
   }

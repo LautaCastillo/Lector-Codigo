@@ -25,43 +25,47 @@ Tamaños: **S** = una sesión de trabajo, **M** = unas pocas sesiones, **L** = r
 
 | # | Funcionalidad | Qué resuelve | Cómo | Tam. |
 |---|---|---|---|---|
-| 5 | **Acta de relevamiento en PDF** | Hoy solo hay CSV. | Acta de una jornada cerrada: encontrados, faltantes, sobrantes y fuera de lugar, quién relevó y cuándo, con huella SHA-256. Se registra en el historial de exportaciones. | M |
-| 6 | **Firma de conformidad del responsable** | El acta no tiene constancia de que el responsable la vio. | Firma en pantalla o confirmación con su cuenta sobre el acta; se guarda en la base con fecha. Depende de 5. | M |
-| 7 | **Bienes para baja o en reparación** | Cuentan como faltantes aunque se sepa dónde están. | Estado administrativo del bien (en reparación, para baja, prestado) con motivo; el avance los muestra aparte. Resuelve también el pendiente "marcar los bienes que dejan de figurar en un listado nuevo". | M |
-| 8 | **Pendientes que se repiten** | Un bien no encontrado en varias jornadas se pierde entre los demás. | Contar en cuántas jornadas seguidas quedó pendiente y destacarlo. | S |
+| 5 | **Acta de relevamiento en PDF** (omitido por ahora) | Hoy solo hay CSV. | Acta de una jornada cerrada: encontrados, faltantes, sobrantes y fuera de lugar, quién relevó y cuándo, con huella SHA-256. Se registra en el historial de exportaciones. | M |
+| 6 | **Firma de conformidad del responsable** (omitido por ahora) | El acta no tiene constancia de que el responsable la vio. | Firma en pantalla o confirmación con su cuenta sobre el acta; se guarda en la base con fecha. Depende de 5. | M |
+| 7 | **Bienes para baja o en reparación** (hecho el 10/11/2026; falta marcar en bloque los que dejan de figurar en un listado nuevo) | Cuentan como faltantes aunque se sepa dónde están. | Estado administrativo del bien (en reparación, para baja, prestado) con motivo; el avance los muestra aparte. Resuelve también el pendiente "marcar los bienes que dejan de figurar en un listado nuevo". | M |
+| 8 | **Pendientes que se repiten** (hecho el 10/11/2026) | Un bien no encontrado en varias jornadas se pierde entre los demás. | Contar en cuántas jornadas seguidas quedó pendiente y destacarlo. | S |
 
 ## Etapa 3: trabajo diario
 
 | # | Funcionalidad | Qué resuelve | Cómo | Tam. |
 |---|---|---|---|---|
-| 9 | **Comentarios en un bien o una jornada** | No hay dónde anotar "prestado a otra oficina". | Tabla de comentarios con autor y fecha, visibles en la ficha y la jornada. Entran en la auditoría. | S |
-| 10 | **Linterna y escaneo continuo** | Depósitos oscuros; leer varios códigos seguidos. | Botón de linterna en la cámara; modo continuo con pausa entre lecturas. | S |
-| 11 | **Historia de cada bien** | No se ve dónde estuvo ni en qué estado. | Línea de tiempo en la ficha con los relevamientos, ubicaciones y estados declarados. | M |
-| 12 | **Panel del administrador** | No hay una vista de conjunto. | Avance por área, bienes nunca encontrados, lecturas por persona. | M |
-| 13 | **Comparar dos jornadas** | No se ve qué cambió de un relevamiento al siguiente. | Diferencias entre dos jornadas de la misma área: apareció, desapareció, cambió de lugar. | M |
-| 14 | **Búsqueda más amplia** | Se busca por número o descripción. | Filtros combinados por responsable, número de serie, área y estado. | S |
-| 15 | **Planificar jornadas** | Las jornadas se abren a mano. | Asignar ubicaciones a personas con fecha, y un listado "mis tareas". | M |
-| 16 | **Avisos** | Hay que abrir la app para enterarse. | Notificaciones al abrirse o cerrarse una jornada de tu área y cuando hay discrepancias nuevas. | M |
+| 9 | **Comentarios en un bien o una jornada** (hecho el 10/11/2026) | No hay dónde anotar "prestado a otra oficina". | Tabla de comentarios con autor y fecha, visibles en la ficha y la jornada. Entran en la auditoría. | S |
+| 10 | **Linterna y escaneo continuo** (hecho el 10/11/2026) | Depósitos oscuros; leer varios códigos seguidos. | Botón de linterna en la cámara; modo continuo con pausa entre lecturas. | S |
+| 11 | **Historia de cada bien** (hecho el 10/11/2026) | No se ve dónde estuvo ni en qué estado. | Línea de tiempo en la ficha con los relevamientos, ubicaciones y estados declarados. | M |
+| 12 | **Panel del administrador** (hecho el 10/11/2026) | No hay una vista de conjunto. | Avance por área, bienes nunca encontrados, lecturas por persona. | M |
+| 13 | **Comparar dos jornadas** (hecho el 10/11/2026) | No se ve qué cambió de un relevamiento al siguiente. | Diferencias entre dos jornadas de la misma área: apareció, desapareció, cambió de lugar. | M |
+| 14 | **Búsqueda más amplia** (hecho el 10/11/2026) | Se busca por número o descripción. | Filtros combinados por responsable, número de serie, área y estado. | S |
+| 15 | **Planificar jornadas** (hecho el 10/11/2026) | Las jornadas se abren a mano. | Asignar ubicaciones a personas con fecha, y un listado "mis tareas". | M |
+| 16 | **Avisos** (hecho el 10/11/2026, dentro de la app: sin notificaciones push) | Hay que abrir la app para enterarse. | Notificaciones al abrirse o cerrarse una jornada de tu área y cuando hay discrepancias nuevas. | M |
 
 ## Etapa 4: que otras universidades puedan usarla
 
 | # | Funcionalidad | Qué resuelve | Cómo | Tam. |
 |---|---|---|---|---|
-| 17 | **Importador con mapeo de columnas** | Cada universidad exporta Diaguita con columnas algo distintas. | Mapeo configurable y guardado por institución, con vista previa. | M |
-| 18 | **Varias instituciones** | Hoy toda la base es de una universidad. | Decidir primero por ADR: una instalación por universidad (simple, los datos quedan en cada una) o una institución por fila con RLS. Requiere aval de cada institución y revisar la normativa. | L |
-| 19 | **Altas, bajas y traslados con acta** | La app solo observa el catálogo. | Flujos de movimiento entre áreas con acta y aprobación. Depende de 6 y 7. | L |
-| 20 | **Tablas propias de áreas, ubicaciones y empleados** | Hoy son texto dentro de los bienes. | Maestros normalizados. Es la base de 21 y mejora 17 y 19. | L |
-| 21 | **Ubicaciones con jerarquía** | Lista plana de ubicaciones. | Edificio, piso, aula. Depende de 20. | M |
+| 17 | **Importador con mapeo de columnas** (omitido por ahora) | Cada universidad exporta Diaguita con columnas algo distintas. | Mapeo configurable y guardado por institución, con vista previa. | M |
+| 18 | **Varias instituciones** (omitido por ahora) | Hoy toda la base es de una universidad. | Decidir primero por ADR: una instalación por universidad (simple, los datos quedan en cada una) o una institución por fila con RLS. Requiere aval de cada institución y revisar la normativa. | L |
+| 19 | **Altas, bajas y traslados con acta** (omitido por ahora) | La app solo observa el catálogo. | Flujos de movimiento entre áreas con acta y aprobación. Depende de 6 y 7. | L |
+| 20 | **Tablas propias de áreas, ubicaciones y empleados** (omitido por ahora) | Hoy son texto dentro de los bienes. | Maestros normalizados. Es la base de 21 y mejora 17 y 19. | L |
+| 21 | **Ubicaciones con jerarquía** (omitido por ahora) | Lista plana de ubicaciones. | Edificio, piso, aula. Depende de 20. | M |
 
 ## Etapa 5: comodidades
 
 | # | Funcionalidad | Cómo | Tam. |
 |---|---|---|---|
-| 22 | **Generar e imprimir etiquetas** QR o Code128 para bienes sin etiqueta o dañadas | Generador y hoja imprimible | M |
-| 23 | **Fotos por bien** | Depende de la decisión pendiente: cuántas fotos, tamaño y dónde guardarlas | M |
-| 24 | **Leer el número con la cámara (OCR)** para etiquetas dañadas | Reconocimiento de texto en el teléfono | M |
-| 25 | **Hallazgo con ayuda de la foto** (sugerir clase y descripción) | Sugerencias a partir de bienes parecidos | M |
-| 26 | **Mapa o plano de la ubicación** | Solo si Patrimonio tiene los planos | L |
+| 22 | **Generar e imprimir etiquetas** (omitido por ahora) QR o Code128 para bienes sin etiqueta o dañadas | Generador y hoja imprimible | M |
+| 23 | **Fotos por bien** (omitido por ahora) | Depende de la decisión pendiente: cuántas fotos, tamaño y dónde guardarlas | M |
+| 24 | **Leer el número con la cámara (OCR)** (omitido por ahora) para etiquetas dañadas | Reconocimiento de texto en el teléfono | M |
+| 25 | **Hallazgo con ayuda de la foto** (omitido por ahora) (sugerir clase y descripción) | Sugerencias a partir de bienes parecidos | M |
+| 26 | **Mapa o plano de la ubicación** (omitido por ahora) | Solo si Patrimonio tiene los planos | L |
+
+## Alcance acordado (10/11/2026)
+
+Se omiten por ahora, por ser muy específicos o depender de decisiones externas, los ítems 5 y 6 (acta en PDF y firma), 17 a 21 (otras instituciones, altas, bajas y traslados, maestros y jerarquía) y 22 a 26 (etiquetas, fotos por bien, OCR, hallazgo con ayuda de la foto y plano). Siguen abiertos el 4 (dividir por sectores, diferido), el 14 (búsqueda más amplia), el 15 (planificar jornadas) y el 16 (avisos). Cualquiera de los omitidos se puede retomar: la fila conserva su descripción.
 
 ## Dependencias
 

@@ -86,6 +86,15 @@ export const EXPLICACION_RESULTADO: Record<string, string> = {
   hallazgo: 'Algo que se vio en campo y no se pudo asociar a un bien del catálogo.',
 };
 
+/** Situación administrativa de un bien (la declara un administrador): por qué no está donde debería. */
+export const SITUACIONES_BIEN = ['en_reparacion', 'para_baja', 'prestado'] as const;
+export type SituacionBien = (typeof SITUACIONES_BIEN)[number];
+export const ETIQUETA_SITUACION: Record<string, string> = {
+  en_reparacion: 'En reparación',
+  para_baja: 'Para baja',
+  prestado: 'Prestado',
+};
+
 export const ETIQUETA_CODIGO: Record<string, string> = {
   sin_codigo: 'Sin código',
   codigo_danado: 'Código dañado',

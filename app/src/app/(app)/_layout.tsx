@@ -1,6 +1,8 @@
 import { Stack } from 'expo-router';
+import { View } from 'react-native';
 import { ConMenu } from '../../compartido/menu';
 import { useTema } from '../../compartido/tema';
+import { AvisosEnVivo, CampanaDeAvisos } from '../../funciones/avisos/avisos';
 import { ColaDeEnvio } from '../../funciones/cola/ColaDeEnvio';
 import { PildoraDeRed } from '../../funciones/cola/pildora-de-red';
 
@@ -10,13 +12,19 @@ export default function LayoutApp() {
   return (
     <ConMenu>
       <ColaDeEnvio />
+      <AvisosEnVivo />
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: c.primario },
           headerTintColor: c.sobrePrimario,
           headerTitleStyle: { fontWeight: '700' },
           contentStyle: { backgroundColor: c.fondo },
-          headerRight: () => <PildoraDeRed />,
+          headerRight: () => (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <PildoraDeRed />
+              <CampanaDeAvisos />
+            </View>
+          ),
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
@@ -24,7 +32,12 @@ export default function LayoutApp() {
         <Stack.Screen name="jornadas" options={{ title: 'Jornadas por área' }} />
         <Stack.Screen name="jornada/[id]" options={{ title: 'Jornada' }} />
         <Stack.Screen name="jornada/discrepancias" options={{ title: 'Discrepancias' }} />
+        <Stack.Screen name="jornada/comentarios" options={{ title: 'Comentarios' }} />
+        <Stack.Screen name="jornada/comparar" options={{ title: 'Comparar jornadas' }} />
+        <Stack.Screen name="avisos" options={{ title: 'Avisos' }} />
         <Stack.Screen name="pendientes" options={{ title: 'Sin enviar' }} />
+        <Stack.Screen name="tareas" options={{ title: 'Mis tareas' }} />
+        <Stack.Screen name="tarea-nueva" options={{ title: 'Asignar una tarea' }} />
         <Stack.Screen name="relevamientos" options={{ title: 'Mis relevamientos' }} />
         <Stack.Screen name="hallazgo/nuevo" options={{ title: 'Registrar hallazgo' }} />
         <Stack.Screen name="relevamiento/nuevo" options={{ title: 'Registrar relevamiento' }} />
@@ -35,6 +48,10 @@ export default function LayoutApp() {
         <Stack.Screen name="explorar" options={{ title: 'Explorar bienes' }} />
         <Stack.Screen name="explorar-detalle" options={{ title: 'Bienes' }} />
         <Stack.Screen name="bien/[numero]" options={{ title: 'Ficha del bien' }} />
+        <Stack.Screen name="situacion/[numero]" options={{ title: 'Situación del bien' }} />
+        <Stack.Screen name="historia/[numero]" options={{ title: 'Historia del bien' }} />
+        <Stack.Screen name="panel" options={{ title: 'Panel' }} />
+        <Stack.Screen name="panel-sin-relevar" options={{ title: 'Sin relevar' }} />
         <Stack.Screen name="cuentas" options={{ title: 'Cuentas' }} />
         <Stack.Screen name="cuenta-nueva" options={{ title: 'Nueva cuenta' }} />
         <Stack.Screen name="configurar-bloqueo" options={{ title: 'PIN de bloqueo' }} />

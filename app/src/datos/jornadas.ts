@@ -1,5 +1,6 @@
 // Jornadas compartidas por área o ubicación (plan v3, fase 5): abrir, cerrar, avance y cambios en tiempo real.
 import type { ResultadoRelevamiento } from '@patrimonio/shared';
+import type { SituacionBien } from '../compartido/formato';
 import { conCopiaLocal } from './red';
 import { supabase } from './supabase';
 import { aIso, comprobar } from './util';
@@ -47,6 +48,11 @@ export interface FilaAvance {
   /** Alguien eligió cuál de las lecturas que no coincidían es la válida; `notaResolucion` es lo que dejó escrito. */
   resuelta: boolean;
   notaResolucion: string | null;
+  /** Situación administrativa del bien y su motivo: mientras no se lo encuentre, no cuenta como pendiente ni como esperado. */
+  situacion: SituacionBien | null;
+  motivoSituacion: string | null;
+  /** En cuántas jornadas cerradas anteriores del mismo alcance, seguidas, tampoco se encontró este bien (0 si no se repite o ya se encontró). */
+  vecesSinEncontrar: number;
   /** La lectura se hizo en este teléfono y todavía no llegó al servidor (se arma localmente, no viene de la base). */
   sinEnviar?: boolean;
 }
@@ -95,7 +101,7 @@ export async function cerrarJornada(id: string): Promise<void> {
 export function avanceDeJornada(id: string): Promise<FilaAvance[]> {
   return conCopiaLocal(`avance:${id}`, async () => {
     const filas = (comprobar(await supabase.rpc('avance_jornada', { p_id: id })) ?? []) as FilaAvance[];
-    return filas.map((f) => ({ ...f, relevadoEn: f.relevadoEn ? aIso(f.relevadoEn) : null, tambienVieron: f.tambienVieron ?? [] }));
+    return filas.map((f) => ({ ...f, relevadoEn: f.relevadoEn ? aIso(f.relevadoEn) : null, tambienVieron: f.tambienVieron ?? [], vecesSinEncontrar: f.vecesSinEncontrar ?? 0 }));
   });
 }
 
@@ -109,6 +115,28 @@ export async function lecturasDeBienEnJornada(jornadaId: string, bienId: string)
 export async function resolverDiscrepancia(jornadaId: string, bienId: string, relevamientoId: string, nota: string): Promise<void> {
   const { error } = await supabase.rpc('resolver_discrepancia', { p_jornada: jornadaId, p_bien_id: bienId, p_relevamiento: relevamientoId, p_nota: nota.trim() || null });
   if (error) throw new Error(error.message);
+}
+
+/** Qué pasó con un bien entre dos jornadas del mismo alcance. */
+export type CambioEntreJornadas = 'aparecio' | 'desaparecio' | 'cambio_lugar' | 'igual' | 'falto_en_ambas';
+
+export interface FilaComparacion {
+  bienId: string;
+  numeroInventario: string;
+  descripcion: string | null;
+  ubicacionFisica: string | null;
+  cambio: CambioEntreJornadas;
+  ubicacionAntes: string | null;
+  ubicacionDespues: string | null;
+  relevadorAntes: string | null;
+  relevadorDespues: string | null;
+  /** Situación del bien (reparación, baja, préstamo) en la segunda jornada: explica por qué no apareció. */
+  situacionDespues: SituacionBien | null;
+}
+
+/** Compara dos jornadas del mismo área o ubicación: cada bien esperado dice si apareció, desapareció, cambió de lugar o quedó igual. */
+export async function compararJornadas(antesId: string, despuesId: string): Promise<FilaComparacion[]> {
+  return (comprobar(await supabase.rpc('comparar_jornadas', { p_antes: antesId, p_despues: despuesId })) ?? []) as FilaComparacion[];
 }
 
 /**

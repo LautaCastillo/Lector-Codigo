@@ -28,6 +28,9 @@ const esperada = (numero: string, extra: Partial<FilaAvance> = {}): FilaAvance =
   codigoProvisorio: null,
   resuelta: false,
   notaResolucion: null,
+  situacion: null,
+  motivoSituacion: null,
+  vecesSinEncontrar: 0,
   ...extra,
 });
 
@@ -108,6 +111,11 @@ describe('aplicarPendientes', () => {
     const r = aplicarPendientes(filas, [pendiente('a', {}, { numeroInventario: '00000001', ubicacionObservada: 'Oficina 2' })], JORNADA, 'Ana');
     expect(r[0]).toMatchObject({ encontrado: true, relevador: 'Ana', sinEnviar: true, fueraDeLugar: true, ubicacionObservada: 'Oficina 2' });
     expect(r[1]?.encontrado).toBe(false);
+  });
+
+  it('un pendiente que se repetía deja de repetirse al leerlo acá', () => {
+    const r = aplicarPendientes([esperada('00000001', { vecesSinEncontrar: 3 })], [pendiente('a')], JORNADA, 'Ana');
+    expect(r[0]).toMatchObject({ encontrado: true, vecesSinEncontrar: 0 });
   });
 
   it('no modifica las filas originales', () => {

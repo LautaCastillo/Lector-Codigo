@@ -9,7 +9,7 @@ Todo lo que vive en la base de datos de Supabase, versionado como SQL (plan v3, 
 | `functions/` | Edge Functions (`admin-cuentas`: crear cuentas y restablecer contraseñas con la clave secreta, que Supabase inyecta en la función) |
 | `tests/politicas.sql` | Pruebas de privilegios y políticas RLS por rol |
 | `tests/cuentas.sql` | Pruebas de las funciones de administración de cuentas |
-| `tests/catalogo.sql`, `tests/relevamientos.sql`, `tests/importar-catalogo.sql`, `tests/explorar.sql`, `tests/jornadas.sql`, `tests/jornadas-duplicados.sql`, `tests/jornadas-hallazgos.sql`, `tests/anular-relevamiento.sql`, `tests/resolver-discrepancias.sql`, `tests/historial-exportaciones.sql` | Pruebas de la lectura del catálogo, de los relevamientos, fotos y eventos, de la importación del catálogo y de los listados por área y responsable |
+| `tests/catalogo.sql`, `tests/relevamientos.sql`, `tests/importar-catalogo.sql`, `tests/explorar.sql`, `tests/jornadas.sql`, `tests/jornadas-duplicados.sql`, `tests/jornadas-hallazgos.sql`, `tests/anular-relevamiento.sql`, `tests/resolver-discrepancias.sql`, `tests/situacion-bien.sql`, `tests/pendientes-repetidos.sql`, `tests/comentarios.sql`, `tests/panel.sql`, `tests/comparar-jornadas.sql`, `tests/estados-catalogo.sql`, `tests/tareas.sql`, `tests/avisos.sql`, `tests/historial-exportaciones.sql` | Pruebas de la lectura del catálogo, de los relevamientos, fotos y eventos, de la importación del catálogo y de los listados por área y responsable |
 
 ## Aplicar una migración
 
@@ -24,6 +24,10 @@ Hay que correr los dos archivos después de cada cambio de privilegios, polític
 ## Edge Functions
 
 Se despliegan con `supabase functions deploy <nombre>` o con la herramienta `deploy_edge_function` del conector. La clave secreta (`SUPABASE_SERVICE_ROLE_KEY`) la provee la plataforma: nunca se escribe en el repositorio ni en la app. Una función con `verify_jwt` desactivado tiene que validar por sí misma al que llama antes de hacer nada.
+
+## Que el proyecto no se pause
+
+El plan gratuito pausa los proyectos con poca actividad en 7 días. La tarea `mantener-activo` (pg_cron, todos los días 09:00 UTC) consulta `bien` y llama a la API del proyecto con pg_net. Necesita el secreto de Vault `clave_publicable` (la clave publicable, que es pública por diseño): si se recrea el proyecto, crearlo con `SELECT vault.create_secret('<clave publicable>', 'clave_publicable');`. Ver la migración `mantener_proyecto_activo`.
 
 ## Reglas para escribir SQL acá
 

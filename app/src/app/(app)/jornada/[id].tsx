@@ -3,7 +3,7 @@ import { esSimbologia, SIMBOLOGIAS_POR_DEFECTO } from '@patrimonio/shared';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import * as Crypto from 'expo-crypto';
 import * as Haptics from 'expo-haptics';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { comunes } from '../../../compartido/estilos';
@@ -13,6 +13,7 @@ import { Barra, Boton, Chip, EstadoCarga, Opciones } from '../../../compartido/u
 import { useLector } from '../../../compartido/useLector';
 import { resolverEscaneo } from '../../../datos/catalogo';
 import { descartar, encolar, enviarPendientes, estadoDe, useCola } from '../../../datos/cola-envio';
+import { contarComentariosDeJornada } from '../../../datos/comentarios';
 import { cerrarJornada, type FilaAvance } from '../../../datos/jornadas';
 import { conLimite, estaSinRed, marcarRed } from '../../../datos/red';
 import { anularRelevamiento } from '../../../datos/relevamientos';
@@ -22,10 +23,13 @@ import { FilaDeAvance } from '../../../funciones/jornada/fila-avance';
 import { useJornada } from '../../../funciones/jornada/useJornada';
 import { useSesion } from '../../../sesion/sesion';
 
-type Pestana = 'pendientes' | 'encontrados' | 'otros';
+type Pestana = 'pendientes' | 'encontrados' | 'apartados' | 'otros';
 type Aviso = { tipo: 'ok' | 'alerta' | 'error'; texto: string };
 
-const IGNORAR_REPETIDO_MS = 2000;
+/** Mientras la misma etiqueta siga a la vista no se vuelve a contar; recién cuenta de nuevo si se aleja y vuelve. */
+const MS_MISMA_ETIQUETA = 3000;
+/** Pausa entre una lectura y la siguiente: da tiempo a ver el aviso y evita leer por error la etiqueta vecina. */
+const PAUSA_ENTRE_LECTURAS_MS = 700;
 /** Cuánto se espera al servidor antes de seguir leyendo; lo que no llegó queda en la cola y se envía solo. */
 const ESPERA_ENVIO_MS = 8000;
 const ESPERA_CATALOGO_MS = 8000;
@@ -48,13 +52,30 @@ export default function PantallaJornada() {
   const e = useEstilos(fabrica);
   const { c } = useTema();
   const [permiso, pedirPermiso] = useCameraPermissions();
-  const { jornada, filas, filasRef, error, cargar, controlRecarga, esperadas, pendientes, encontradas, otros, ubicaciones, porcentaje } = useJornada(id);
+  const { jornada, filas, filasRef, error, cargar, controlRecarga, esperadas, contables, pendientes, apartadas, encontradas, otros, ubicaciones, porcentaje } = useJornada(id);
   const { pendientes: enCola } = useCola();
+  const [comentarios, setComentarios] = useState(0);
+
+  // La cantidad se vuelve a pedir al volver de la pantalla de comentarios; sin conexión queda la última conocida.
+  useFocusEffect(
+    useCallback(() => {
+      contarComentariosDeJornada(id)
+        .then(setComentarios)
+        .catch(() => undefined);
+    }, [id]),
+  );
   const [pestana, setPestana] = useState<Pestana>('pendientes');
   const [camara, setCamara] = useState(false);
   const [ubicacionActual, setUbicacionActual] = useState<string | null>(null);
   const [aviso, setAviso] = useState<Aviso | null>(null);
-  const { tomar, liberar } = useLector({ ventanaMs: IGNORAR_REPETIDO_MS });
+  // Escaneo continuo: la misma etiqueta cuenta una sola vez mientras siga a la vista, y entre una lectura y la siguiente hay una pausa corta.
+  const { tomar, liberar } = useLector({ ventanaMs: MS_MISMA_ETIQUETA, extender: true });
+  const [linterna, setLinterna] = useState(false);
+
+  // La linterna se apaga con la cámara.
+  useEffect(() => {
+    if (!camara) setLinterna(false);
+  }, [camara]);
 
   const yo = perfil?.nombre ?? perfil?.cuenta ?? '';
   const abierta = jornada?.estado === 'abierta';
@@ -169,7 +190,7 @@ export default function PantallaJornada() {
         setAviso({ tipo: 'error', texto: mensajeDeError(err, 'No se pudo registrar la lectura.') });
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       } finally {
-        liberar();
+        setTimeout(liberar, PAUSA_ENTRE_LECTURAS_MS);
       }
     },
     [abierta, cargar, filasRef, liberar, registrar, tomar, ubicacionActual, yo],
@@ -258,10 +279,11 @@ export default function PantallaJornada() {
     else if (item.numeroInventario) router.push({ pathname: '/bien/[numero]', params: { numero: item.numeroInventario } });
   };
 
+  const repetidos = pendientes.filter((f) => (f.vecesSinEncontrar ?? 0) > 0).length;
   const porRevisar = esperadas.filter((f) => f.discrepancia).length;
   const resueltas = esperadas.filter((f) => f.resuelta).length;
 
-  const lista = pestana === 'pendientes' ? pendientes : pestana === 'encontrados' ? encontradas : otros;
+  const lista = pestana === 'pendientes' ? pendientes : pestana === 'encontrados' ? encontradas : pestana === 'apartados' ? apartadas : otros;
 
   const cabecera = (
     <View style={{ gap: 12 }}>
@@ -272,15 +294,25 @@ export default function PantallaJornada() {
         <Text style={e.titulo}>{jornada?.alcance}</Text>
         <Barra porcentaje={porcentaje} alto={10} />
         <Text style={e.ayuda}>
-          {encontradas.length} de {esperadas.length} encontrados ({porcentaje} %) · {pendientes.length} pendientes
+          {encontradas.length} de {contables} encontrados ({porcentaje} %) · {pendientes.length} pendientes
+          {apartadas.length ? ` · ${apartadas.length} apartados` : ''}
           {otros.length ? ` · ${otros.length} fuera de lo esperado` : ''}
         </Text>
+        {repetidos > 0 && (
+          <Text style={e.ayuda}>
+            {repetidos} pendiente{repetidos === 1 ? ' ya faltó' : 's ya faltaron'} en jornadas anteriores; {repetidos === 1 ? 'va' : 'van'} primero en la lista.
+          </Text>
+        )}
         {jornada && (
           <Text style={e.ayuda}>
             La abrió {jornada.propia ? 'vos' : jornada.creadaPor} · {fechaHora(jornada.creadoEn)}
           </Text>
         )}
       </View>
+
+      <Boton texto={comentarios > 0 ? `Comentarios (${comentarios})` : 'Comentarios'} variante="secundario" onPress={() => router.push({ pathname: '/jornada/comentarios', params: { id } })} />
+
+      <Boton texto="Comparar con otra jornada" variante="secundario" onPress={() => router.push({ pathname: '/jornada/comparar', params: { id } })} />
 
       {(porRevisar > 0 || resueltas > 0) && (
         <Boton
@@ -310,9 +342,20 @@ export default function PantallaJornada() {
               <CameraView
                 style={StyleSheet.absoluteFill}
                 facing="back"
+                enableTorch={linterna}
                 barcodeScannerSettings={{ barcodeTypes: [...SIMBOLOGIAS_POR_DEFECTO] }}
                 onBarcodeScanned={alLeer}
               />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={linterna ? 'Apagar linterna' : 'Encender linterna'}
+                accessibilityState={{ selected: linterna }}
+                onPress={() => setLinterna((l) => !l)}
+                style={[e.linterna, linterna && { backgroundColor: c.accion }]}
+                hitSlop={10}
+              >
+                <Ionicons name={linterna ? 'flash' : 'flash-outline'} size={22} color="#FFFFFF" />
+              </Pressable>
               <Pressable accessibilityRole="button" accessibilityLabel="Apagar la cámara" onPress={() => setCamara(false)} style={e.cerrarCamara} hitSlop={10}>
                 <Ionicons name="close" size={24} color="#FFFFFF" />
               </Pressable>
@@ -338,11 +381,13 @@ export default function PantallaJornada() {
         opciones={[
           { clave: 'pendientes', titulo: `Pendientes ${pendientes.length}` },
           { clave: 'encontrados', titulo: `Encontrados ${encontradas.length}` },
+          ...(apartadas.length > 0 || pestana === 'apartados' ? [{ clave: 'apartados' as const, titulo: `Apartados ${apartadas.length}` }] : []),
           { clave: 'otros', titulo: `Otros ${otros.length}` },
         ]}
         actual={pestana}
         alElegir={setPestana}
       />
+      {pestana === 'apartados' && <Text style={e.ayuda}>Bienes en reparación, para baja o prestados que todavía no se encontraron: no cuentan como pendientes. Si aparecen, se pueden relevar igual.</Text>}
       {pestana === 'otros' && <Text style={e.ayuda}>Bienes de otra área y códigos que no están en el catálogo, leídos durante esta jornada.</Text>}
       <EstadoCarga error={error} cargando={!filas} alReintentar={cargar} />
     </View>
@@ -376,6 +421,7 @@ const fabrica = (c: Paleta) => ({
   rotulo: { fontSize: 12, fontWeight: '700', color: c.suave, textTransform: 'uppercase' },
   titulo: { fontSize: 18, fontWeight: '800', color: c.titulo },
   camara: { height: 260, borderRadius: radio, overflow: 'hidden', backgroundColor: '#000000' },
+  linterna: { position: 'absolute', top: 10, left: 10, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
   cerrarCamara: { position: 'absolute', top: 10, right: 10, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
   aviso: { borderRadius: radio, borderWidth: 1.5, borderColor: c.accion, backgroundColor: c.superficie, padding: 12 },
   avisoTexto: { fontSize: 15, fontWeight: '600', color: c.texto },
