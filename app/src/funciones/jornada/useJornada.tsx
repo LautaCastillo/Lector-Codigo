@@ -6,7 +6,7 @@ import { RefreshControl } from 'react-native';
 import { mensajeDeError } from '../../compartido/formato';
 import { useTema } from '../../compartido/tema';
 import { useCola } from '../../datos/cola-envio';
-import { avanceDeJornada, obtenerJornada, suscribirseAJornada, type FilaAvance, type Jornada } from '../../datos/jornadas';
+import { avanceDeJornada, obtenerJornada, sectoresDeJornada, suscribirseAJornada, type FilaAvance, type Jornada, type SectorTomado } from '../../datos/jornadas';
 import { useSesion } from '../../sesion/sesion';
 import { aplicarPendientes } from '../cola/cola';
 
@@ -19,6 +19,7 @@ export function useJornada(id: string) {
   const yo = perfil?.nombre ?? perfil?.cuenta ?? '';
   const [jornada, setJornada] = useState<Jornada | null>(null);
   const [delServidor, setFilas] = useState<FilaAvance[] | null>(null);
+  const [sectores, setSectores] = useState<SectorTomado[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [actualizando, setActualizando] = useState(false);
   const filas = useMemo(() => (delServidor ? aplicarPendientes(delServidor, sinEnviar, id, yo) : null), [delServidor, sinEnviar, id, yo]);
@@ -29,10 +30,12 @@ export function useJornada(id: string) {
   /** Vuelve a pedir la jornada y su avance. Devuelve el avance nuevo, o `null` si falló. */
   const cargar = useCallback(async () => {
     try {
-      const [j, a] = await Promise.all([obtenerJornada(id), avanceDeJornada(id)]);
+      // Los sectores son un complemento: si no se pueden leer, la jornada se muestra igual.
+      const [j, a, s] = await Promise.all([obtenerJornada(id), avanceDeJornada(id), sectoresDeJornada(id).catch(() => null)]);
       if (!j) throw new Error('La jornada no existe.');
       setJornada(j);
       setFilas(a);
+      if (s) setSectores(s);
       setError(null);
       return a;
     } catch (err) {
@@ -82,5 +85,5 @@ export function useJornada(id: string) {
     />
   );
 
-  return { jornada, filas, filasRef, error, cargar, controlRecarga, esperadas, contables, pendientes, apartadas, encontradas, otros, ubicaciones, porcentaje };
+  return { jornada, filas, filasRef, sectores, error, cargar, controlRecarga, esperadas, contables, pendientes, apartadas, encontradas, otros, ubicaciones, porcentaje };
 }

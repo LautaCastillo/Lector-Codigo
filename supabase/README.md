@@ -9,7 +9,7 @@ Todo lo que vive en la base de datos de Supabase, versionado como SQL (plan v3, 
 | `functions/` | Edge Functions (`admin-cuentas`: crear cuentas y restablecer contraseñas con la clave secreta, que Supabase inyecta en la función) |
 | `tests/politicas.sql` | Pruebas de privilegios y políticas RLS por rol |
 | `tests/cuentas.sql` | Pruebas de las funciones de administración de cuentas |
-| `tests/catalogo.sql`, `tests/relevamientos.sql`, `tests/importar-catalogo.sql`, `tests/explorar.sql`, `tests/jornadas.sql`, `tests/jornadas-duplicados.sql`, `tests/jornadas-hallazgos.sql`, `tests/anular-relevamiento.sql`, `tests/resolver-discrepancias.sql`, `tests/situacion-bien.sql`, `tests/pendientes-repetidos.sql`, `tests/comentarios.sql`, `tests/panel.sql`, `tests/comparar-jornadas.sql`, `tests/estados-catalogo.sql`, `tests/tareas.sql`, `tests/avisos.sql`, `tests/historial-exportaciones.sql` | Pruebas de la lectura del catálogo, de los relevamientos, fotos y eventos, de la importación del catálogo y de los listados por área y responsable |
+| `tests/catalogo.sql`, `tests/relevamientos.sql`, `tests/importar-catalogo.sql`, `tests/explorar.sql`, `tests/jornadas.sql`, `tests/jornadas-duplicados.sql`, `tests/jornadas-hallazgos.sql`, `tests/anular-relevamiento.sql`, `tests/resolver-discrepancias.sql`, `tests/situacion-bien.sql`, `tests/pendientes-repetidos.sql`, `tests/comentarios.sql`, `tests/panel.sql`, `tests/comparar-jornadas.sql`, `tests/estados-catalogo.sql`, `tests/tareas.sql`, `tests/avisos.sql`, `tests/sectores-jornada.sql`, `tests/historial-exportaciones.sql` | Pruebas de la lectura del catálogo, de los relevamientos, fotos y eventos, de la importación del catálogo y de los listados por área y responsable |
 
 ## Aplicar una migración
 

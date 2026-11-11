@@ -1,9 +1,10 @@
 // Jornadas compartidas por área o ubicación (plan v3, fase 5): abrir, cerrar, avance y cambios en tiempo real.
 import type { ResultadoRelevamiento } from '@patrimonio/shared';
 import type { SituacionBien } from '../compartido/formato';
+import { miId } from './cuentas';
 import { conCopiaLocal } from './red';
 import { supabase } from './supabase';
-import { aIso, comprobar } from './util';
+import { aIso, comprobar, type Fila } from './util';
 
 export interface Jornada {
   id: string;
@@ -117,6 +118,41 @@ export async function resolverDiscrepancia(jornadaId: string, bienId: string, re
   if (error) throw new Error(error.message);
 }
 
+/** Una ubicación del área de una jornada que alguien tomó para recorrerla. */
+export interface SectorTomado {
+  ubicacion: string;
+  usuarioId: string;
+  /** Nombre de quien lo tiene. */
+  usuario: string;
+  propio: boolean;
+}
+
+/** Los sectores que hoy tiene alguien en la jornada. Sin red devuelve la última copia. */
+export function sectoresDeJornada(jornadaId: string): Promise<SectorTomado[]> {
+  return conCopiaLocal(`sectores:${jornadaId}`, async () => {
+    const yo = await miId();
+    const filas = comprobar(
+      await supabase.from('sector_jornada').select('ubicacion, usuarioId, usuario:usuario!usuarioId(cuenta, nombre)').eq('jornadaId', jornadaId).is('liberadoEn', null),
+    ) as Fila[];
+    return filas.map((f) => {
+      const u = f.usuario as { cuenta: string; nombre: string | null } | null;
+      return { ubicacion: f.ubicacion as string, usuarioId: f.usuarioId as string, usuario: u ? (u.nombre ?? u.cuenta) : '', propio: f.usuarioId === yo };
+    });
+  });
+}
+
+/** Toma una ubicación del área para recorrerla. Falla con el nombre de quien ya la tiene. Solo organiza: no impide leer fuera del sector. */
+export async function tomarSector(jornadaId: string, ubicacion: string): Promise<void> {
+  const { error } = await supabase.rpc('tomar_sector', { p_jornada: jornadaId, p_ubicacion: ubicacion });
+  if (error) throw new Error(error.message);
+}
+
+/** Suelta un sector: quien lo tiene, quien abrió la jornada o un administrador. */
+export async function soltarSector(jornadaId: string, ubicacion: string): Promise<void> {
+  const { error } = await supabase.rpc('soltar_sector', { p_jornada: jornadaId, p_ubicacion: ubicacion });
+  if (error) throw new Error(error.message);
+}
+
 /** Qué pasó con un bien entre dos jornadas del mismo alcance. */
 export type CambioEntreJornadas = 'aparecio' | 'desaparecio' | 'cambio_lugar' | 'igual' | 'falto_en_ambas';
 
@@ -155,6 +191,7 @@ export function suscribirseAJornada(alCambiar: () => void): () => void {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'relevamiento' }, avisar)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'jornada' }, avisar)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'resolucion_discrepancia' }, avisar)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'sector_jornada' }, avisar)
     .subscribe();
   return () => {
     if (temporizador) clearTimeout(temporizador);

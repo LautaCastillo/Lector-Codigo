@@ -14,7 +14,7 @@ import { useLector } from '../../../compartido/useLector';
 import { resolverEscaneo } from '../../../datos/catalogo';
 import { descartar, encolar, enviarPendientes, estadoDe, useCola } from '../../../datos/cola-envio';
 import { contarComentariosDeJornada } from '../../../datos/comentarios';
-import { cerrarJornada, type FilaAvance } from '../../../datos/jornadas';
+import { cerrarJornada, soltarSector, tomarSector, type FilaAvance } from '../../../datos/jornadas';
 import { conLimite, estaSinRed, marcarRed } from '../../../datos/red';
 import { anularRelevamiento } from '../../../datos/relevamientos';
 import { esFalloDeRed } from '../../../datos/util';
@@ -52,7 +52,7 @@ export default function PantallaJornada() {
   const e = useEstilos(fabrica);
   const { c } = useTema();
   const [permiso, pedirPermiso] = useCameraPermissions();
-  const { jornada, filas, filasRef, error, cargar, controlRecarga, esperadas, contables, pendientes, apartadas, encontradas, otros, ubicaciones, porcentaje } = useJornada(id);
+  const { jornada, filas, filasRef, sectores, error, cargar, controlRecarga, esperadas, contables, pendientes, apartadas, encontradas, otros, ubicaciones, porcentaje } = useJornada(id);
   const { pendientes: enCola } = useCola();
   const [comentarios, setComentarios] = useState(0);
 
@@ -279,6 +279,47 @@ export default function PantallaJornada() {
     else if (item.numeroInventario) router.push({ pathname: '/bien/[numero]', params: { numero: item.numeroInventario } });
   };
 
+  // Sectores: quién tiene cada ubicación del área. Solo organizan; la fila de un sector ajeno se atenúa pero se puede leer igual.
+  const dueno = (ubicacion: string | null) => (ubicacion ? sectores.find((s) => s.ubicacion === ubicacion) : undefined);
+  const sectorAjeno = (item: FilaAvance) => {
+    const s = item.tipo === 'esperado' ? dueno(item.ubicacionFisica) : undefined;
+    return s && !s.propio ? s.usuario : undefined;
+  };
+  const misSectores = sectores.filter((s) => s.propio).length;
+
+  const tocarSector = async (ubicacion: string) => {
+    const s = dueno(ubicacion);
+    const accion = async (hacer: () => Promise<void>, aviso: string) => {
+      try {
+        await hacer();
+        setAviso({ tipo: 'ok', texto: aviso });
+        await cargar();
+      } catch (err) {
+        setAviso({ tipo: 'error', texto: mensajeDeError(err, 'No se pudo cambiar el sector.') });
+        await cargar();
+      }
+    };
+    if (!s) {
+      await accion(async () => {
+        await tomarSector(id, ubicacion);
+        // Tomar un sector también indica dónde se está, para avisar si algo no está en su lugar.
+        setUbicacionActual(ubicacion);
+      }, `Tomaste ${ubicacion}`);
+    } else if (s.propio) {
+      Alert.alert(`Soltar ${ubicacion}`, 'Otra persona podrá tomarlo. Lo ya relevado no cambia.', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Soltar', style: 'destructive', onPress: () => void accion(() => soltarSector(id, ubicacion), `Soltaste ${ubicacion}`) },
+      ]);
+    } else if (puedeCerrar) {
+      Alert.alert(ubicacion, `Lo tiene ${s.usuario}.`, [
+        { text: 'Dejarlo', style: 'cancel' },
+        { text: 'Quitárselo', style: 'destructive', onPress: () => void accion(() => soltarSector(id, ubicacion), `${ubicacion} quedó libre`) },
+      ]);
+    } else {
+      Alert.alert(ubicacion, `Lo tiene ${s.usuario}. Si querés recorrerlo, pedile que lo suelte.`);
+    }
+  };
+
   const repetidos = pendientes.filter((f) => (f.vecesSinEncontrar ?? 0) > 0).length;
   const porRevisar = esperadas.filter((f) => f.discrepancia).length;
   const resueltas = esperadas.filter((f) => f.resuelta).length;
@@ -324,6 +365,19 @@ export default function PantallaJornada() {
 
       {abierta && (
         <View style={{ gap: 10 }}>
+          {jornada?.tipo === 'area' && ubicaciones.length > 1 && (
+            <View style={{ gap: 6 }}>
+              <Text style={e.ayuda}>
+                Sectores: tomá una ubicación para recorrerla y que nadie más la repita{misSectores ? ` (tenés ${misSectores})` : ''}. Solo organiza: se puede leer en cualquier lugar.
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                {ubicaciones.map((u) => {
+                  const s = dueno(u);
+                  return <Chip key={u} texto={`${u} · ${s ? (s.propio ? 'vos' : s.usuario) : 'libre'}`} activo={!!s?.propio} alTocar={() => void tocarSector(u)} />;
+                })}
+              </ScrollView>
+            </View>
+          )}
           {jornada?.tipo === 'area' && ubicaciones.length > 1 && (
             <View style={{ gap: 6 }}>
               <Text style={e.ayuda}>¿En qué ubicación estás ahora? (para avisar si algo no está en su lugar)</Text>
@@ -408,7 +462,7 @@ export default function PantallaJornada() {
       ListEmptyComponent={<Text style={e.ayuda}>{!filas ? '' : pestana === 'pendientes' ? 'No queda nada pendiente.' : 'Todavía no hay nada acá.'}</Text>}
       refreshControl={controlRecarga}
       renderItem={({ item }) => (
-        <FilaDeAvance item={item} yo={yo} marcable={item.tipo === 'esperado' && !item.encontrado && !!abierta} deshacible={puedeDeshacer(item)} alTocar={() => alTocarFila(item)} />
+        <FilaDeAvance item={item} yo={yo} marcable={item.tipo === 'esperado' && !item.encontrado && !!abierta} deshacible={puedeDeshacer(item)} sectorDe={sectorAjeno(item)} alTocar={() => alTocarFila(item)} />
       )}
     />
   );

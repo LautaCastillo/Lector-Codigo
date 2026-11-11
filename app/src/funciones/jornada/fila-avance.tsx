@@ -9,18 +9,20 @@ import type { FilaAvance } from '../../datos/jornadas';
 /**
  * `yo`: nombre de la cuenta, para escribir "vos" en lugar de repetirlo. `marcable`: se puede marcar a mano como encontrado.
  * `deshacible`: la lectura se puede deshacer (es propia, o quien mira es administrador, y la jornada sigue abierta).
+ * `sectorDe`: el bien está en un sector que tomó otra persona; la fila se atenúa (no impide leerlo).
  */
-export function FilaDeAvance({ item, yo, marcable, deshacible, alTocar }: { item: FilaAvance; yo: string; marcable: boolean; deshacible: boolean; alTocar: () => void }) {
+export function FilaDeAvance({ item, yo, marcable, deshacible, sectorDe, alTocar }: { item: FilaAvance; yo: string; marcable: boolean; deshacible: boolean; sectorDe?: string; alTocar: () => void }) {
   const e = useEstilos(fabrica);
   const { c } = useTema();
   return (
-    <Pressable accessibilityRole="button" onPress={alTocar} style={({ pressed }) => [e.fila, pressed && { opacity: 0.85 }]}>
+    <Pressable accessibilityRole="button" onPress={alTocar} style={({ pressed }) => [e.fila, !!sectorDe && { opacity: 0.55 }, pressed && { opacity: 0.85 }]}>
       <View style={{ flex: 1, gap: 3 }}>
         <Text style={e.numero}>{item.numeroInventario ?? item.codigoProvisorio ?? 'Sin número'}</Text>
         <Text style={e.descripcion} numberOfLines={2}>
           {item.descripcion ?? 'Sin descripción'}
         </Text>
         {item.tipo === 'esperado' && !item.encontrado && item.ubicacionFisica && <Text style={e.ayuda}>{item.ubicacionFisica}</Text>}
+        {sectorDe && <Text style={e.ayuda}>Sector de {sectorDe}</Text>}
         {item.encontrado && item.relevador && (
           <Text style={e.ayuda}>
             Relevó {item.relevador === yo ? 'vos' : item.relevador}
