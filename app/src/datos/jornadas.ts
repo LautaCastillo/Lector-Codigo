@@ -1,7 +1,10 @@
 // Jornadas compartidas por área o ubicación (plan v3, fase 5): abrir, cerrar, avance y cambios en tiempo real.
 import type { ResultadoRelevamiento } from '@patrimonio/shared';
+import type { SituacionBien } from '../compartido/formato';
+import { miId } from './cuentas';
+import { conCopiaLocal } from './red';
 import { supabase } from './supabase';
-import { aIso, comprobar } from './util';
+import { aIso, comprobar, type Fila } from './util';
 
 export interface Jornada {
   id: string;
@@ -41,18 +44,46 @@ export interface FilaAvance {
   tambienVieron: string[];
   /** Las lecturas del bien no coinciden (otro resultado u otra ubicación): conviene revisarlo. */
   discrepancia: boolean;
+  /** Código provisorio (H-XXXXXXXX) si la fila es un hallazgo registrado durante la jornada. */
+  codigoProvisorio: string | null;
+  /** Alguien eligió cuál de las lecturas que no coincidían es la válida; `notaResolucion` es lo que dejó escrito. */
+  resuelta: boolean;
+  notaResolucion: string | null;
+  /** Situación administrativa del bien y su motivo: mientras no se lo encuentre, no cuenta como pendiente ni como esperado. */
+  situacion: SituacionBien | null;
+  motivoSituacion: string | null;
+  /** En cuántas jornadas cerradas anteriores del mismo alcance, seguidas, tampoco se encontró este bien (0 si no se repite o ya se encontró). */
+  vecesSinEncontrar: number;
+  /** La lectura se hizo en este teléfono y todavía no llegó al servidor (se arma localmente, no viene de la base). */
+  sinEnviar?: boolean;
 }
 
-/** Las jornadas, de la más reciente a la más antigua, con su avance. */
-export async function listarJornadas(estado?: 'abierta' | 'cerrada'): Promise<Jornada[]> {
-  const filas = (comprobar(await supabase.rpc('listar_jornadas', { p_estado: estado ?? null, p_id: null })) ?? []) as Jornada[];
-  return filas.map((j) => ({ ...j, creadoEn: new Date(j.creadoEn).toISOString(), cerradaEn: j.cerradaEn ? new Date(j.cerradaEn).toISOString() : null }));
+/** Una lectura de un bien dentro de una jornada, para elegir cuál vale cuando no coinciden. */
+export interface LecturaDeBien {
+  relevamientoId: string;
+  relevador: string;
+  relevadoEn: string;
+  resultado: string;
+  ubicacionObservada: string | null;
+  observaciones: string | null;
+  elegida: boolean;
 }
 
-export async function obtenerJornada(id: string): Promise<Jornada | null> {
-  const filas = (comprobar(await supabase.rpc('listar_jornadas', { p_estado: null, p_id: id })) ?? []) as Jornada[];
-  const j = filas[0];
-  return j ? { ...j, creadoEn: new Date(j.creadoEn).toISOString(), cerradaEn: j.cerradaEn ? new Date(j.cerradaEn).toISOString() : null } : null;
+/** Las jornadas, de la más reciente a la más antigua, con su avance. Sin red devuelve la última lista que se pudo leer. */
+export function listarJornadas(estado?: 'abierta' | 'cerrada'): Promise<Jornada[]> {
+  return conCopiaLocal(`jornadas:${estado ?? 'todas'}`, async () => {
+    const filas = (comprobar(await supabase.rpc('listar_jornadas', { p_estado: estado ?? null, p_id: null })) ?? []) as Jornada[];
+    return filas.map((j) => ({ ...j, creadoEn: new Date(j.creadoEn).toISOString(), cerradaEn: j.cerradaEn ? new Date(j.cerradaEn).toISOString() : null }));
+  });
+}
+
+/** Una jornada con su avance. Sin red devuelve la última copia que se pudo leer. */
+export function obtenerJornada(id: string): Promise<Jornada | null> {
+  return conCopiaLocal(`jornada:${id}`, async () => {
+    const filas = (comprobar(await supabase.rpc('listar_jornadas', { p_estado: null, p_id: id })) ?? []) as Jornada[];
+    const j = filas[0];
+    return j ? { ...j, creadoEn: new Date(j.creadoEn).toISOString(), cerradaEn: j.cerradaEn ? new Date(j.cerradaEn).toISOString() : null } : null;
+  });
 }
 
 /** Abre una jornada del área o la ubicación, o devuelve la que ya está abierta (así se suma quien llega después). */
@@ -67,9 +98,81 @@ export async function cerrarJornada(id: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-export async function avanceDeJornada(id: string): Promise<FilaAvance[]> {
-  const filas = (comprobar(await supabase.rpc('avance_jornada', { p_id: id })) ?? []) as FilaAvance[];
-  return filas.map((f) => ({ ...f, relevadoEn: f.relevadoEn ? aIso(f.relevadoEn) : null, tambienVieron: f.tambienVieron ?? [] }));
+/** El avance de la jornada. Sin red devuelve la última copia que se pudo leer: sirve para seguir relevando lo que ya se conocía. */
+export function avanceDeJornada(id: string): Promise<FilaAvance[]> {
+  return conCopiaLocal(`avance:${id}`, async () => {
+    const filas = (comprobar(await supabase.rpc('avance_jornada', { p_id: id })) ?? []) as FilaAvance[];
+    return filas.map((f) => ({ ...f, relevadoEn: f.relevadoEn ? aIso(f.relevadoEn) : null, tambienVieron: f.tambienVieron ?? [], vecesSinEncontrar: f.vecesSinEncontrar ?? 0 }));
+  });
+}
+
+/** Las lecturas vigentes de un bien en la jornada, de la primera a la última. */
+export async function lecturasDeBienEnJornada(jornadaId: string, bienId: string): Promise<LecturaDeBien[]> {
+  const filas = (comprobar(await supabase.rpc('lecturas_de_bien_en_jornada', { p_jornada: jornadaId, p_bien_id: bienId })) ?? []) as LecturaDeBien[];
+  return filas.map((f) => ({ ...f, relevadoEn: aIso(f.relevadoEn) }));
+}
+
+/** Elige la lectura que vale (quien abrió la jornada o un administrador, con la jornada abierta). Se puede cambiar la elección. */
+export async function resolverDiscrepancia(jornadaId: string, bienId: string, relevamientoId: string, nota: string): Promise<void> {
+  const { error } = await supabase.rpc('resolver_discrepancia', { p_jornada: jornadaId, p_bien_id: bienId, p_relevamiento: relevamientoId, p_nota: nota.trim() || null });
+  if (error) throw new Error(error.message);
+}
+
+/** Una ubicación del área de una jornada que alguien tomó para recorrerla. */
+export interface SectorTomado {
+  ubicacion: string;
+  usuarioId: string;
+  /** Nombre de quien lo tiene. */
+  usuario: string;
+  propio: boolean;
+}
+
+/** Los sectores que hoy tiene alguien en la jornada. Sin red devuelve la última copia. */
+export function sectoresDeJornada(jornadaId: string): Promise<SectorTomado[]> {
+  return conCopiaLocal(`sectores:${jornadaId}`, async () => {
+    const yo = await miId();
+    const filas = comprobar(
+      await supabase.from('sector_jornada').select('ubicacion, usuarioId, usuario:usuario!usuarioId(cuenta, nombre)').eq('jornadaId', jornadaId).is('liberadoEn', null),
+    ) as Fila[];
+    return filas.map((f) => {
+      const u = f.usuario as { cuenta: string; nombre: string | null } | null;
+      return { ubicacion: f.ubicacion as string, usuarioId: f.usuarioId as string, usuario: u ? (u.nombre ?? u.cuenta) : '', propio: f.usuarioId === yo };
+    });
+  });
+}
+
+/** Toma una ubicación del área para recorrerla. Falla con el nombre de quien ya la tiene. Solo organiza: no impide leer fuera del sector. */
+export async function tomarSector(jornadaId: string, ubicacion: string): Promise<void> {
+  const { error } = await supabase.rpc('tomar_sector', { p_jornada: jornadaId, p_ubicacion: ubicacion });
+  if (error) throw new Error(error.message);
+}
+
+/** Suelta un sector: quien lo tiene, quien abrió la jornada o un administrador. */
+export async function soltarSector(jornadaId: string, ubicacion: string): Promise<void> {
+  const { error } = await supabase.rpc('soltar_sector', { p_jornada: jornadaId, p_ubicacion: ubicacion });
+  if (error) throw new Error(error.message);
+}
+
+/** Qué pasó con un bien entre dos jornadas del mismo alcance. */
+export type CambioEntreJornadas = 'aparecio' | 'desaparecio' | 'cambio_lugar' | 'igual' | 'falto_en_ambas';
+
+export interface FilaComparacion {
+  bienId: string;
+  numeroInventario: string;
+  descripcion: string | null;
+  ubicacionFisica: string | null;
+  cambio: CambioEntreJornadas;
+  ubicacionAntes: string | null;
+  ubicacionDespues: string | null;
+  relevadorAntes: string | null;
+  relevadorDespues: string | null;
+  /** Situación del bien (reparación, baja, préstamo) en la segunda jornada: explica por qué no apareció. */
+  situacionDespues: SituacionBien | null;
+}
+
+/** Compara dos jornadas del mismo área o ubicación: cada bien esperado dice si apareció, desapareció, cambió de lugar o quedó igual. */
+export async function compararJornadas(antesId: string, despuesId: string): Promise<FilaComparacion[]> {
+  return (comprobar(await supabase.rpc('comparar_jornadas', { p_antes: antesId, p_despues: despuesId })) ?? []) as FilaComparacion[];
 }
 
 /**
@@ -87,6 +190,8 @@ export function suscribirseAJornada(alCambiar: () => void): () => void {
     .channel(`jornada-${Date.now()}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'relevamiento' }, avisar)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'jornada' }, avisar)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'resolucion_discrepancia' }, avisar)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'sector_jornada' }, avisar)
     .subscribe();
   return () => {
     if (temporizador) clearTimeout(temporizador);

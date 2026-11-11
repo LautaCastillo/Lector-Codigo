@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AppState } from 'react-native';
 import { marcarClaveCambiada, obtenerPerfil, type Perfil, registrarInicioDeSesion } from '../datos/cuentas';
+import { borrarCopiasLocales } from '../datos/red';
 import { borrarLoteGuardado } from '../funciones/lote/almacen';
 import { supabase } from '../datos/supabase';
 import { mensajeDeError } from '../compartido/formato';
@@ -130,6 +131,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
       },
       cerrarSesion: async () => {
         await borrarLoteGuardado();
+        await borrarCopiasLocales();
         await supabase.auth.signOut();
       },
     }),

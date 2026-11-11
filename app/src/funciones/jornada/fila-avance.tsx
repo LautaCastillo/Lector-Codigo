@@ -2,22 +2,27 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text, View } from 'react-native';
 import { comunes } from '../../compartido/estilos';
-import { fechaHora } from '../../compartido/formato';
+import { ETIQUETA_SITUACION, fechaHora } from '../../compartido/formato';
 import { radio, useEstilos, useTema, type Paleta } from '../../compartido/tema';
 import type { FilaAvance } from '../../datos/jornadas';
 
-/** `yo`: nombre de la cuenta, para escribir "vos" en lugar de repetirlo. `marcable`: se puede marcar a mano como encontrado. */
-export function FilaDeAvance({ item, yo, marcable, alTocar }: { item: FilaAvance; yo: string; marcable: boolean; alTocar: () => void }) {
+/**
+ * `yo`: nombre de la cuenta, para escribir "vos" en lugar de repetirlo. `marcable`: se puede marcar a mano como encontrado.
+ * `deshacible`: la lectura se puede deshacer (es propia, o quien mira es administrador, y la jornada sigue abierta).
+ * `sectorDe`: el bien está en un sector que tomó otra persona; la fila se atenúa (no impide leerlo).
+ */
+export function FilaDeAvance({ item, yo, marcable, deshacible, sectorDe, alTocar }: { item: FilaAvance; yo: string; marcable: boolean; deshacible: boolean; sectorDe?: string; alTocar: () => void }) {
   const e = useEstilos(fabrica);
   const { c } = useTema();
   return (
-    <Pressable accessibilityRole="button" onPress={alTocar} style={({ pressed }) => [e.fila, pressed && { opacity: 0.85 }]}>
+    <Pressable accessibilityRole="button" onPress={alTocar} style={({ pressed }) => [e.fila, !!sectorDe && { opacity: 0.55 }, pressed && { opacity: 0.85 }]}>
       <View style={{ flex: 1, gap: 3 }}>
-        <Text style={e.numero}>{item.numeroInventario ?? 'Sin número'}</Text>
+        <Text style={e.numero}>{item.numeroInventario ?? item.codigoProvisorio ?? 'Sin número'}</Text>
         <Text style={e.descripcion} numberOfLines={2}>
           {item.descripcion ?? 'Sin descripción'}
         </Text>
         {item.tipo === 'esperado' && !item.encontrado && item.ubicacionFisica && <Text style={e.ayuda}>{item.ubicacionFisica}</Text>}
+        {sectorDe && <Text style={e.ayuda}>Sector de {sectorDe}</Text>}
         {item.encontrado && item.relevador && (
           <Text style={e.ayuda}>
             Relevó {item.relevador === yo ? 'vos' : item.relevador}
@@ -25,16 +30,31 @@ export function FilaDeAvance({ item, yo, marcable, alTocar }: { item: FilaAvance
           </Text>
         )}
         {item.tambienVieron.length > 0 && <Text style={e.ayuda}>También lo vio {item.tambienVieron.map((n) => (n === yo ? 'vos' : n)).join(', ')}</Text>}
-        {item.discrepancia && <Text style={e.alerta}>Revisar: las lecturas no coinciden (otro resultado u otra ubicación)</Text>}
+        {!item.encontrado && item.vecesSinEncontrar > 0 && (
+          <Text style={e.alerta}>
+            {item.vecesSinEncontrar === 1 ? 'No se encontró en la jornada anterior' : `No se encontró en las últimas ${item.vecesSinEncontrar} jornadas seguidas`}
+          </Text>
+        )}
+        {item.situacion && (
+          <Text style={e.alerta}>
+            {ETIQUETA_SITUACION[item.situacion]}
+            {item.motivoSituacion ? `: ${item.motivoSituacion}` : ''}
+          </Text>
+        )}
+        {item.discrepancia &&<Text style={e.alerta}>Revisar: las lecturas no coinciden (otro resultado u otra ubicación)</Text>}
+        {item.resuelta && <Text style={e.ayuda}>Discrepancia resuelta{item.notaResolucion ? `: ${item.notaResolucion}` : ''}</Text>}
         {item.fueraDeLugar && (
           <Text style={e.alerta}>
             Está en {item.ubicacionObservada}; el catálogo dice {item.ubicacionFisica ?? 'sin ubicación'}
           </Text>
         )}
         {item.tipo === 'extra' && item.areaResponsable && <Text style={e.alerta}>Pertenece a {item.areaResponsable}</Text>}
-        {item.tipo === 'extra' && !item.bienId && <Text style={e.alerta}>No figura en el catálogo</Text>}
+        {item.resultado === 'hallazgo' && <Text style={e.alerta}>Hallazgo: se registró durante esta jornada</Text>}
+        {item.tipo === 'extra' && !item.bienId && !item.sinEnviar && item.resultado !== 'hallazgo' && <Text style={e.alerta}>No figura en el catálogo</Text>}
+        {item.sinEnviar && <Text style={e.alerta}>Sin enviar: se guardó en el teléfono y se manda cuando haya conexión</Text>}
       </View>
       {marcable && <Ionicons name="checkmark-circle-outline" size={24} color={c.suave} />}
+      {deshacible && <Ionicons name="arrow-undo-outline" size={22} color={c.suave} />}
     </Pressable>
   );
 }

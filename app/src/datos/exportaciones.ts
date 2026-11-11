@@ -2,6 +2,7 @@
 import { construirCsv, MAX_FILAS_EXPORTACION, nombreDeArchivo, type ResultadoRelevamiento } from '@patrimonio/shared';
 import * as Crypto from 'expo-crypto';
 import { miId } from './cuentas';
+import { listarJornadas } from './jornadas';
 import { COLUMNAS_RELEVAMIENTO } from './relevamientos';
 import { supabase } from './supabase';
 import { aIso, comprobar, type Fila } from './util';
@@ -37,7 +38,7 @@ export async function exportarRelevamientos(filtro: FiltroExportacion, administr
   const solo = !administrador || filtro.mios;
   const recolectadas: Fila[] = [];
   for (let desde = 0; recolectadas.length <= MAX_FILAS_EXPORTACION; desde += PAGINA) {
-    let consulta = supabase.from('relevamiento').select(COLUMNAS_RELEVAMIENTO).order('relevadoEnDispositivo', { ascending: false });
+    let consulta = supabase.from('relevamiento').select(COLUMNAS_RELEVAMIENTO).is('anuladoEn', null).order('relevadoEnDispositivo', { ascending: false });
     if (solo) consulta = consulta.eq('usuarioId', yo);
     if (filtro.ubicacion) consulta = consulta.eq('ubicacionObservada', filtro.ubicacion);
     if (filtro.resultado) consulta = consulta.eq('resultado', filtro.resultado);
@@ -50,6 +51,16 @@ export async function exportarRelevamientos(filtro: FiltroExportacion, administr
   const truncado = recolectadas.length > MAX_FILAS_EXPORTACION;
   const filas = truncado ? recolectadas.slice(0, MAX_FILAS_EXPORTACION) : recolectadas;
 
+  // El archivo nombra la jornada (su área o ubicación) en lugar de mostrar un identificador.
+  const nombreDeJornada = new Map<string, string>();
+  if (filas.some((f) => f.jornadaId)) {
+    try {
+      for (const j of await listarJornadas()) nombreDeJornada.set(j.id, j.alcance);
+    } catch {
+      // Sin ese dato el archivo sigue siendo válido: la jornada se identifica con el comienzo de su código.
+    }
+  }
+
   const csv = construirCsv(
     filas.map((f) => {
       const usuario = f.usuario as { cuenta: string; nombre: string | null };
@@ -59,6 +70,7 @@ export async function exportarRelevamientos(filtro: FiltroExportacion, administr
         sincronizadoEn: new Date(aIso(f.sincronizadoEn)),
         usuario,
         loteId: (f.loteId as string | null) ?? null,
+        jornada: f.jornadaId ? (nombreDeJornada.get(f.jornadaId as string) ?? (f.jornadaId as string).slice(0, 8)) : null,
         resultado: f.resultado as string,
         simbologia: (f.simbologia as string | null) ?? null,
         valorLeido: (f.valorLeido as string | null) ?? null,

@@ -15,6 +15,10 @@ import { useLector } from '../../compartido/useLector';
 
 /** Tras "Escanear otro", el mismo código se ignora este tiempo: la cámara sigue viendo la etiqueta anterior. */
 const IGNORAR_REPETIDO_MS = 2000;
+/** Modo continuo: la misma etiqueta cuenta una sola vez mientras siga a la vista. */
+const MS_MISMA_ETIQUETA = 3000;
+/** Modo continuo: pausa entre una lectura y la siguiente, para ver el resultado antes de que lo reemplace otro. */
+const PAUSA_ENTRE_LECTURAS_MS = 1200;
 
 type Estado =
   | { tipo: 'listo' }
@@ -32,7 +36,10 @@ export default function Escanear() {
 
 function PantallaEscaneo() {
   const router = useRouter();
-  const { simbologias, tomar, liberar } = useLector();
+  // Modo continuo: la cámara sigue leyendo y cada etiqueta nueva reemplaza el resultado, sin tocar "Escanear otro".
+  // La misma etiqueta cuenta una sola vez mientras siga a la vista.
+  const [continuo, setContinuo] = useState(false);
+  const { simbologias, tomar, liberar } = useLector({ ventanaMs: MS_MISMA_ETIQUETA, extender: continuo });
   const [estado, setEstado] = useState<Estado>({ tipo: 'listo' });
   const [linterna, setLinterna] = useState(false);
   const { c } = useTema();
@@ -55,7 +62,9 @@ function PantallaEscaneo() {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setEstado({ tipo: 'error', mensaje: mensajeDeError(error, 'Error de red') });
     }
-  }, [tomar]);
+    // En modo continuo, tras una pausa corta se acepta la próxima etiqueta; si no, se espera a "Escanear otro".
+    if (continuo) setTimeout(liberar, PAUSA_ENTRE_LECTURAS_MS);
+  }, [tomar, continuo, liberar]);
 
   const escanearOtro = () => {
     liberar(IGNORAR_REPETIDO_MS);
@@ -77,7 +86,7 @@ function PantallaEscaneo() {
           facing="back"
           enableTorch={linterna}
           barcodeScannerSettings={{ barcodeTypes: simbologias }}
-          onBarcodeScanned={estado.tipo === 'listo' ? alLeer : undefined}
+          onBarcodeScanned={estado.tipo === 'listo' || continuo ? alLeer : undefined}
         />
         <View style={e.guia} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
           <View style={[e.marco, estado.tipo !== 'listo' && { borderColor: estado.tipo === 'resultado' && estado.resultado.encontrado ? c.ok : c.suave }]} />
@@ -90,6 +99,20 @@ function PantallaEscaneo() {
           style={[e.linterna, linterna && { backgroundColor: c.accion }]}
         >
           <Ionicons name={linterna ? 'flash' : 'flash-outline'} size={26} color="#FFFFFF" />
+        </Pressable>
+        <Pressable
+          accessibilityRole="switch"
+          accessibilityLabel="Escaneo continuo"
+          accessibilityState={{ checked: continuo }}
+          onPress={() => {
+            // Al activarlo con un resultado en pantalla, la cámara vuelve a leer sin esperar a "Escanear otro".
+            if (!continuo) liberar(IGNORAR_REPETIDO_MS);
+            setContinuo(!continuo);
+          }}
+          style={[e.continuo, continuo && { backgroundColor: c.accion }]}
+        >
+          <Ionicons name="repeat" size={20} color="#FFFFFF" />
+          <Text style={e.continuoTexto}>{continuo ? 'Continuo' : 'Uno a uno'}</Text>
         </Pressable>
       </View>
 
@@ -146,6 +169,8 @@ const fabrica = (c: Paleta) => ({
   guia: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, alignItems: 'center', justifyContent: 'center' },
   marco: { width: '78%', maxWidth: 360, aspectRatio: 1.8, borderRadius: 16, borderWidth: 3, borderColor: 'rgba(255,255,255,0.9)' },
   linterna: { position: 'absolute', top: 16, right: 16, width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.55)' },
+  continuo: { position: 'absolute', top: 16, left: 16, height: 48, borderRadius: 24, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,0.55)' },
+  continuoTexto: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
   panel: { padding: 20, gap: 12, minHeight: 170, backgroundColor: c.superficie, justifyContent: 'center' },
   resumen: { gap: 4 },
   rotulo: { fontSize: 13, color: c.suave },

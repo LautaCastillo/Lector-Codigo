@@ -8,11 +8,16 @@ export type Ruta =
   | '/lote'
   | '/relevamientos'
   | '/jornadas'
+  | '/avisos'
+  | '/tareas'
+  | '/tarea-nueva'
   | '/exportar'
   | '/hallazgo/nuevo'
   | '/buscar'
   | '/explorar'
   | '/historiales'
+  | '/panel'
+  | '/panel-sin-relevar'
   | '/cuentas'
   | '/importar-catalogo'
   | '/actividad'
@@ -43,6 +48,7 @@ export const SECCIONES: Seccion[] = [
     funciones: [
       ESCANEAR,
       { titulo: 'Jornadas por área', detalle: 'Relevar en equipo, en vivo', icono: 'people-circle-outline', ruta: '/jornadas' },
+      { titulo: 'Mis tareas', detalle: 'Lo que te asignaron', icono: 'checkbox-outline', ruta: '/tareas' },
       { titulo: 'Lote por ubicación', detalle: 'Escanear en ráfaga', icono: 'albums-outline', ruta: '/lote' },
       { titulo: 'Registrar hallazgo', detalle: 'Sin código o fuera del catálogo', icono: 'add-circle-outline', ruta: '/hallazgo/nuevo' },
       { titulo: 'Mis relevamientos', detalle: 'Lo mío y lo del equipo', icono: 'time-outline', ruta: '/relevamientos' },
@@ -66,6 +72,7 @@ export const SECCIONES: Seccion[] = [
     titulo: 'Administración',
     soloAdministrador: true,
     funciones: [
+      { titulo: 'Panel', detalle: 'Avance por área y por persona', icono: 'stats-chart-outline', ruta: '/panel' },
       { titulo: 'Cuentas', detalle: 'Altas, bajas y roles', icono: 'people-outline', ruta: '/cuentas' },
       { titulo: 'Importar catálogo', detalle: 'Cargar un listado de SIU', icono: 'cloud-upload-outline', ruta: '/importar-catalogo' },
       { titulo: 'Actividad', detalle: 'Registro de auditoría', icono: 'list-outline', ruta: '/actividad' },

@@ -31,14 +31,15 @@ const MAX_OBSERVACIONES = 500;
  * etiqueta, o uno que no figura. Queda como hallazgo con un código provisorio (H-XXXXXXXX).
  */
 export default function RegistrarHallazgo() {
-  const { simbologia, leido } = useLocalSearchParams<{ simbologia?: string; leido?: string }>();
+  // `jornadaId` y `ubicacion` llegan cuando el hallazgo se registra desde una jornada: queda dentro de ella y en esa ubicación.
+  const { simbologia, leido, jornadaId, ubicacion: ubicacionInicial } = useLocalSearchParams<{ simbologia?: string; leido?: string; jornadaId?: string; ubicacion?: string }>();
   const router = useRouter();
   const e = useEstilos(fabrica);
   const { c } = useTema();
   const [clase, setClase] = useState<ClaseHallazgo>('no_identificado');
   const [descripcion, setDescripcion] = useState('');
   const [serie, setSerie] = useState('');
-  const [ubicacion, setUbicacion] = useState('');
+  const [ubicacion, setUbicacion] = useState(ubicacionInicial ?? '');
   const [ubicaciones, setUbicaciones] = useState<UbicacionDto[]>([]);
   const [estado, setEstado] = useState<string | null>(null);
   const [observaciones, setObservaciones] = useState('');
@@ -93,6 +94,7 @@ export default function RegistrarHallazgo() {
       clase,
       descripcion: descripcion.trim(),
       ubicacionObservada: ubicacion.trim(),
+      ...(jornadaId ? { jornadaId } : {}),
       ...(serie.trim() ? { numeroSerie: serie.trim() } : {}),
       ...(simbologia && esSimbologia(simbologia) ? { simbologia } : {}),
       ...(leido ? { valorLeido: leido } : {}),
@@ -132,8 +134,14 @@ export default function RegistrarHallazgo() {
             </View>
           )}
           <View style={{ gap: 12, alignSelf: 'stretch' }}>
-            <Boton texto="Escanear otro bien" onPress={() => router.replace('/escanear')} />
-            <Boton texto="Ver mis relevamientos" variante="secundario" onPress={() => router.replace('/relevamientos')} />
+            {jornadaId ? (
+              <Boton texto="Volver a la jornada" onPress={() => router.replace({ pathname: '/jornada/[id]', params: { id: jornadaId } })} />
+            ) : (
+              <>
+                <Boton texto="Escanear otro bien" onPress={() => router.replace('/escanear')} />
+                <Boton texto="Ver mis relevamientos" variante="secundario" onPress={() => router.replace('/relevamientos')} />
+              </>
+            )}
           </View>
         </View>
       </ScrollView>

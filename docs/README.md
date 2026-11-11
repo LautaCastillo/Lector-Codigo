@@ -18,6 +18,7 @@ Los planes anteriores (login propia, backend NestJS, conexión con SIU) se retir
 | Ruta | Contenido | Estado |
 |---|---|---|
 | `plan-v3-supabase-directo.md` | Hoja de ruta vigente | Vigente |
+| `plan-v4-funcionalidades.md` | Nuevas funcionalidades ordenadas por importancia (propuesta) | Propuesto |
 | `estado-y-retomar.md` | Estado por fases y decisiones pendientes | Vigente |
 | `00-inicio/` | Puesta en marcha | Vigente |
 | `01-arquitectura/` | Diagramas C4, secuencias y modelo de datos (hoy solo [`arquitectura.md`](01-arquitectura/arquitectura.md)) | Parcial |

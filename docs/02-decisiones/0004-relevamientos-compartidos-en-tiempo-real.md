@@ -25,6 +25,10 @@ Cuando dos personas relevan juntas la misma ubicación o área, cada una necesit
 - Si dos personas leen el mismo bien, el bien figura relevado por la **primera** según la hora de llegada al servidor (no la del teléfono); las demás se muestran como "también lo vieron" y, si no coinciden en resultado o ubicación, el bien se marca con una discrepancia (30/10/2026).
 - Cualquier cuenta activa puede abrir, sumarse y relevar; cerrar es de quien la abrió o de un administrador.
 
+## Actualización (2/11/2026): cola de envíos
+
+Se retomó la cola de reintentos que aquí era opcional: las lecturas de una jornada se guardan primero en el teléfono y se mandan solas al volver la red, sin catálogo local completo (se usa la última copia de la jornada). Detalle en la [bitácora](../06-bitacora/2026-10.md). El resto de la decisión sigue igual.
+
 ## Consecuencias
 
 - Sin señal no se puede relevar de forma compartida. Hay que confirmar con Patrimonio si existen zonas sin cobertura; de ser así, se reabre esta decisión.

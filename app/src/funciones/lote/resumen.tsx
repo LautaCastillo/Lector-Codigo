@@ -103,6 +103,9 @@ export function Resumen({ lote, alCambiar, alSeguir, alCerrar }: { lote: Lote; a
           {r.sinVerificar.length > 0 && <Text style={e.suave}>Los {r.sinVerificar.length} sin verificar no se envían hasta comprobarlos.</Text>}
           {porEnviar.length > 0 && <Boton texto={`Enviar ${porEnviar.length} al servidor`} cargando={enviando} onPress={enviar} />}
           {resultadoEnvio && <Text style={resultadoEnvio.ok ? e.exito : e.error}>{resultadoEnvio.texto}</Text>}
+          {lote.jornadaId && (
+            <Boton texto="Ir a la jornada" variante="secundario" onPress={() => router.push({ pathname: '/jornada/[id]', params: { id: lote.jornadaId! } })} />
+          )}
         </View>
 
         <Seccion titulo={`Faltantes (${r.faltantes.length})`} inicialAbierta={r.faltantes.length > 0}>

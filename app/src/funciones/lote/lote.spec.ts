@@ -191,6 +191,17 @@ describe('relevamientosPorEnviar y marcarEnviados', () => {
     expect(fuera.valorLeido).toBe('xyz');
   });
 
+  it('suma la jornada a cada relevamiento solo si el lote pertenece a una', () => {
+    expect(relevamientosPorEnviar(armado()).every((x) => x.jornadaId === undefined)).toBe(true);
+    const conJornada = { ...armado(), jornadaId: 'jornada-1' };
+    expect(relevamientosPorEnviar(conJornada).every((x) => x.jornadaId === 'jornada-1')).toBe(true);
+  });
+
+  it('nuevoLote recuerda la jornada', () => {
+    expect(nuevoLote('Oficina 1', [], 'l', AHORA, 'j-9').jornadaId).toBe('j-9');
+    expect(nuevoLote('Oficina 1', [], 'l', AHORA).jornadaId).toBeUndefined();
+  });
+
   it('no repite lo que el servidor ya confirmó', () => {
     const l = marcarEnviados(armado(), ['id-1']);
     expect(relevamientosPorEnviar(l).map((x) => x.idCliente)).toEqual(['id-2']);
