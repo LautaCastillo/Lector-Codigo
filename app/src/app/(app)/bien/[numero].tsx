@@ -107,6 +107,7 @@ export default function FichaBien() {
             </Pressable>
           </View>
           <Text style={e.descripcion}>{bien.descripcion ?? 'Sin descripción'}</Text>
+          {bien.dadoDeBajaEn && <Text style={e.baja}>Dado de baja el {fechaCorta(bien.dadoDeBajaEn)}: ya no figura en el listado de SIU.</Text>}
           {bien.responsableUso && <Text style={e.responsable}>Responsable: {bien.responsableUso}</Text>}
           <Etiquetas bien={bien} />
           {vigente && (
@@ -277,6 +278,7 @@ const fabrica = (c: Paleta) => ({
   copiar: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 10 },
   copiarTexto: { fontSize: 14, fontWeight: '600', color: c.accion },
   descripcion: { fontSize: 16, color: c.texto, lineHeight: 22 },
+  baja: { fontSize: 15, fontWeight: '700', color: c.error },
   responsable: { fontSize: 15, fontWeight: '600', color: c.texto },
   pie: { fontSize: 13, color: c.suave },
   situacion: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: radio },

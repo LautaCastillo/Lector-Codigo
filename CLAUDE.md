@@ -19,6 +19,7 @@ Contexto completo: ver `README.md`. Hoja de ruta vigente: `docs/plan-v3-supabase
 - No inventar datos sobre los bienes, las reglas de negocio ni la infraestructura de la UNSa. Si falta un dato, dejarlo como pendiente.
 - Antes de afirmar algo sobre bibliotecas, versiones o APIs (incluido SIU Diaguita), verificarlo en la documentación oficial o en la web.
 - No desarrollar integraciones con SIU: el catálogo entra solo por archivo.
+- `supabase/base-prisma/`, `supabase/migrations/` y `supabase/tests/` son solo locales (en `.gitignore`, el repositorio es público): no los agregues a git ni los publiques.
 - Todo acceso a datos pasa por RLS y funciones SQL con privilegios mínimos; cada cambio de políticas o funciones se prueba con los scripts de `supabase/tests/`.
 - No hacer commit ni push salvo que el usuario lo pida. Commits de código y de documentación por separado.
 

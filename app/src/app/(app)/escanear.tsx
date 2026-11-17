@@ -135,6 +135,7 @@ function PantallaEscaneo() {
               <Text style={e.descripcion} numberOfLines={3}>
                 {bien.descripcion ?? 'Sin descripción'}
               </Text>
+              {bien.dadoDeBajaEn && <Text style={e.baja}>Dado de baja: ya no figura en el listado de SIU.</Text>}
               {bien.ubicacionFisica && (
                 <View style={e.ubicacion}>
                   <Ionicons name="location-outline" size={18} color={c.suave} />
@@ -176,6 +177,7 @@ const fabrica = (c: Paleta) => ({
   rotulo: { fontSize: 13, color: c.suave },
   numero: { fontSize: 30, fontWeight: '800', color: c.titulo, letterSpacing: 1 },
   descripcion: { fontSize: 16, color: c.texto },
+  baja: { fontSize: 15, fontWeight: '700', color: c.error },
   ubicacion: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   ubicacionTexto: { flex: 1, fontSize: 14, color: c.suave },
   titulo: { fontSize: 22, fontWeight: '700', color: c.texto, textAlign: 'center' },

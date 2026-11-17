@@ -1,6 +1,7 @@
 // Importación del catálogo desde un archivo CSV o XLSX de SIU Diaguita (plan v3, fase 4, ADR 0003).
 // El archivo se lee acá, en el teléfono; las filas viajan en tandas a las funciones de la base, que verifican que
-// quien llama sea administrador. Un bien nunca se borra: se crean los nuevos y se actualizan los existentes.
+// quien llama sea administrador. Un bien nunca se borra: se crean los nuevos, se actualizan los existentes y, si el administrador
+// lo pide, los que faltan en el archivo se marcan como dados de baja.
 import { leerArchivoCatalogo, type BienSiu, type ResultadoLectura } from '@patrimonio/shared';
 import * as Crypto from 'expo-crypto';
 import * as DocumentPicker from 'expo-document-picker';
@@ -81,6 +82,39 @@ export async function procesar(
     alAvanzar?.(Math.min(i + TANDA, bienes.length), bienes.length);
   }
   return totales;
+}
+
+/** Bienes del catálogo que el archivo no incluye, dentro de las áreas que el archivo trae. */
+export interface PreviaBajas {
+  bajas: number;
+  muestra: { numero: string; descripcion: string | null }[];
+}
+
+/** Los números y las áreas del archivo; sin área no se puede saber qué bienes faltan. */
+function alcanceDelArchivo(archivo: ArchivoLeido) {
+  const areas = [...new Set(archivo.bienes.map((b) => b.areaResponsable).filter((a): a is string => !!a))];
+  return archivo.columnas.includes('areaResponsable') && areas.length > 0
+    ? { p_numeros: archivo.bienes.map((b) => b.numeroInventario), p_areas: areas }
+    : null;
+}
+
+/** Cuenta los bienes que faltan en el archivo, sin cambiar nada. Devuelve null si el archivo no trae el área. */
+export async function previsualizarBajas(archivo: ArchivoLeido): Promise<PreviaBajas | null> {
+  const alcance = alcanceDelArchivo(archivo);
+  if (!alcance) return null;
+  const { data, error } = await supabase.rpc('marcar_bajas_catalogo', { ...alcance, p_modo: 'previsualizar' });
+  if (error) throw new Error(error.message);
+  const fila = (data as PreviaBajas[] | null)?.[0];
+  return fila ?? null;
+}
+
+/** Marca como dados de baja los bienes que faltan en el archivo. Devuelve cuántos. */
+export async function aplicarBajas(archivo: ArchivoLeido): Promise<number> {
+  const alcance = alcanceDelArchivo(archivo);
+  if (!alcance) return 0;
+  const { data, error } = await supabase.rpc('marcar_bajas_catalogo', { ...alcance, p_modo: 'aplicar' });
+  if (error) throw new Error(error.message);
+  return (data as PreviaBajas[] | null)?.[0]?.bajas ?? 0;
 }
 
 /** Deja la constancia de la carga (archivo, huella y totales) y el evento de auditoría. */
