@@ -1,9 +1,20 @@
 import type { BienSiu } from '@patrimonio/shared';
 import { useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { ScrollView, Switch, Text, View } from 'react-native';
 import { Boton } from '../../compartido/ui';
 import { useRouter } from 'expo-router';
-import { elegirArchivo, historialImportaciones, procesar, registrarCarga, type ArchivoLeido, type Importacion, type Totales } from '../../datos/importar-catalogo';
+import {
+  aplicarBajas,
+  elegirArchivo,
+  historialImportaciones,
+  previsualizarBajas,
+  procesar,
+  registrarCarga,
+  type ArchivoLeido,
+  type Importacion,
+  type PreviaBajas,
+  type Totales,
+} from '../../datos/importar-catalogo';
 import { fechaHora, mensajeDeError } from '../../compartido/formato';
 import { radio, useEstilos, type Paleta } from '../../compartido/tema';
 import { comunes } from '../../compartido/estilos';
@@ -11,9 +22,9 @@ import { comunes } from '../../compartido/estilos';
 type Paso =
   | { tipo: 'inicio' }
   | { tipo: 'leyendo' }
-  | { tipo: 'previa'; archivo: ArchivoLeido; totales: Totales; yaImportado: Importacion | null }
+  | { tipo: 'previa'; archivo: ArchivoLeido; totales: Totales; yaImportado: Importacion | null; faltantes: PreviaBajas | null }
   | { tipo: 'importando'; archivo: ArchivoLeido; hechos: number }
-  | { tipo: 'listo'; archivo: ArchivoLeido; totales: Totales };
+  | { tipo: 'listo'; archivo: ArchivoLeido; totales: Totales; bajas: number | null };
 
 const NOMBRE_COLUMNA: Record<keyof BienSiu, string> = {
   numeroInventario: 'número patrimonial',
@@ -39,17 +50,20 @@ export default function ImportarCatalogo() {
   const e = useEstilos(fabrica);
   const [paso, setPaso] = useState<Paso>({ tipo: 'inicio' });
   const [error, setError] = useState<string | null>(null);
+  const [marcarBajas, setMarcarBajas] = useState(false);
 
   const elegir = async () => {
     setError(null);
+    setMarcarBajas(false);
     setPaso({ tipo: 'leyendo' });
     try {
       const archivo = await elegirArchivo();
       if (!archivo) return setPaso({ tipo: 'inicio' });
       const totales = await procesar(archivo.bienes, archivo.columnas, 'previsualizar');
+      const faltantes = await previsualizarBajas(archivo);
       // ¿Este mismo archivo (por su huella) ya se cargó antes? Si el historial no se puede leer, no frena la importación.
       const yaImportado = await historialImportaciones(500).then((h) => h.find((i) => i.hashSha256 === archivo.hash) ?? null).catch(() => null);
-      setPaso({ tipo: 'previa', archivo, totales, yaImportado });
+      setPaso({ tipo: 'previa', archivo, totales, yaImportado, faltantes });
     } catch (err) {
       setError(mensajeDeError(err, 'No se pudo leer el archivo.'));
       setPaso({ tipo: 'inicio' });
@@ -62,7 +76,9 @@ export default function ImportarCatalogo() {
     try {
       const totales = await procesar(archivo.bienes, archivo.columnas, 'aplicar', (hechos) => setPaso({ tipo: 'importando', archivo, hechos }));
       await registrarCarga(archivo, totales);
-      setPaso({ tipo: 'listo', archivo, totales });
+      // Primero se importa (un bien que vuelve a aparecer se reactiva) y después se marcan los que faltan.
+      const bajas = marcarBajas ? await aplicarBajas(archivo) : null;
+      setPaso({ tipo: 'listo', archivo, totales, bajas });
     } catch (err) {
       setError(
         `${mensajeDeError(err, 'No se pudo importar.')} Lo que ya se cargó queda guardado: podés repetir la importación, no duplica nada.`,
@@ -76,7 +92,7 @@ export default function ImportarCatalogo() {
       <View style={e.columna}>
         <Text style={e.suave}>
           Cargá el listado "Bienes de uso" que se descarga de SIU Diaguita (Excel o CSV). Los bienes nuevos se agregan y los que ya existen se
-          actualizan por su número patrimonial. Nunca se borra un bien.
+          actualizan por su número patrimonial. Nunca se borra un bien: los que ya no figuran en SIU se pueden marcar como dados de baja.
         </Text>
 
         {(paso.tipo === 'inicio' || paso.tipo === 'leyendo') && (
@@ -109,6 +125,29 @@ export default function ImportarCatalogo() {
             )}
             <Text style={e.suave}>Columnas que trae: {paso.archivo.columnas.map((c) => NOMBRE_COLUMNA[c]).join(', ')}. Las demás no se modifican.</Text>
             <Resumen totales={paso.totales} />
+            {paso.faltantes && paso.faltantes.bajas > 0 && (
+              <View style={e.bajas}>
+                <Text style={e.titulo}>
+                  {plural(paso.faltantes.bajas, 'bien del catálogo no está', 'bienes del catálogo no están')} en este archivo
+                </Text>
+                <Text style={e.suave}>
+                  Son de las mismas áreas que trae el archivo. Si es el listado completo de esas áreas, se pueden marcar como dados de baja: dejan de
+                  contar como pendientes de relevar, pero se siguen pudiendo buscar y no se pierde su historia. Si el archivo es parcial, no lo marques.
+                </Text>
+                {paso.faltantes.muestra.map((m) => (
+                  <Text key={m.numero} style={e.suave}>
+                    {m.numero} · {m.descripcion ?? 'sin descripción'}
+                  </Text>
+                ))}
+                {paso.faltantes.bajas > paso.faltantes.muestra.length && (
+                  <Text style={e.suave}>… y {paso.faltantes.bajas - paso.faltantes.muestra.length} más.</Text>
+                )}
+                <View style={e.interruptor}>
+                  <Text style={[e.titulo, { flex: 1 }]}>Marcarlos como dados de baja</Text>
+                  <Switch value={marcarBajas} onValueChange={setMarcarBajas} accessibilityLabel="Marcar como dados de baja los bienes que faltan en el archivo" />
+                </View>
+              </View>
+            )}
             <Boton texto="Importar" onPress={() => importar(paso.archivo)} />
             <Boton texto="Elegir otro archivo" variante="secundario" onPress={() => setPaso({ tipo: 'inicio' })} />
           </View>
@@ -131,6 +170,7 @@ export default function ImportarCatalogo() {
               registro de actividad.
             </Text>
             <Resumen totales={paso.totales} />
+            {paso.bajas !== null && <Text style={e.aviso}>{plural(paso.bajas, 'bien marcado', 'bienes marcados')} como dado de baja.</Text>}
             <Boton texto="Importar otro archivo" variante="secundario" onPress={() => setPaso({ tipo: 'inicio' })} />
           </View>
         )}
@@ -169,6 +209,8 @@ const fabrica = (c: Paleta) => ({
   tarjeta: { backgroundColor: c.superficie, borderRadius: radio, padding: 18, gap: 14, borderWidth: 1, borderColor: c.borde },
   titulo: { fontSize: 17, fontWeight: '700', color: c.titulo },
   fila: { flexDirection: 'row', gap: 10 },
+  bajas: { gap: 8, padding: 12, borderRadius: 10, backgroundColor: c.fondo, borderWidth: 1, borderColor: c.borde },
+  interruptor: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
   dato: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: 10, borderRadius: 10, backgroundColor: c.fondo, borderWidth: 1, borderColor: c.borde },
   numero: { fontSize: 24, fontWeight: '800', color: c.titulo },
 });

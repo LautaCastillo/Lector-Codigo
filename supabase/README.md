@@ -2,6 +2,8 @@
 
 Todo lo que vive en la base de datos de Supabase, versionado como SQL (plan v3, ADR 0001 y 0005).
 
+> **Solo local.** Como el repositorio es público, `base-prisma/`, `migrations/` y `tests/` no se publican (están en `.gitignore`). Existen en la copia de trabajo de quien desarrolla y la base real es la fuente de verdad (`supabase_migrations.schema_migrations`). Las rutas de esta tabla y de la documentación que apuntan a esas carpetas se refieren a esa copia local. Hacé una copia de respaldo aparte (no en el repositorio público).
+
 | Ruta | Contenido |
 |---|---|
 | `base-prisma/` | Esquema original creado con Prisma (histórico), para reconstruir la base desde cero antes de aplicar `migrations/` |

@@ -8,3 +8,7 @@ coverage
 graphify-out/
 # Análisis de seguridad: solo local, no se publica
 docs/04-operacion/seguridad-*.md
+# Esquema de la base, migraciones y pruebas SQL: solo locales, el repositorio es público
+supabase/base-prisma/
+supabase/migrations/
+supabase/tests/

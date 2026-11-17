@@ -22,7 +22,7 @@ const LARGO_MINIMO_BUSQUEDA = 2;
 /** Campos que cambian solos o no aportan al historial de una ficha. */
 const CAMPOS_IGNORADOS = new Set(['modificadoEn', 'creadoEn']);
 
-export const COLUMNAS_BIEN = 'id, numeroInventario, descripcion, estadoCodigo, estadoBien, ubicacionFisica, areaResponsable, catalogo';
+export const COLUMNAS_BIEN = 'id, numeroInventario, descripcion, estadoCodigo, estadoBien, ubicacionFisica, areaResponsable, catalogo, dadoDeBajaEn';
 const COLUMNAS_DETALLE = `${COLUMNAS_BIEN}, motivoAlta, valorUnitario, fechaIncorporacion, numeroSerie, numeroAnterior, expediente, responsableUso, cantidad, proveedor, numeroFactura, fechaFactura, titularidad, creadoEn, modificadoEn, codigos:codigo_bien(simbologia, valor)`;
 
 /** El resumen de un bien a partir de una fila de la tabla `bien`. */
@@ -36,6 +36,7 @@ export function aBienDto(f: Fila): BienDto {
     ubicacionFisica: (f.ubicacionFisica as string | null) ?? null,
     areaResponsable: (f.areaResponsable as string | null) ?? null,
     catalogo: (f.catalogo as string | null) ?? null,
+    dadoDeBajaEn: f.dadoDeBajaEn ? aIso(f.dadoDeBajaEn) : null,
   };
 }
 
@@ -138,7 +139,7 @@ export async function listarUbicaciones(): Promise<UbicacionDto[]> {
 /** Bienes que el catálogo ubica en `nombre`: lo esperado al relevar esa ubicación. */
 export async function bienesDeUbicacion(nombre: string): Promise<BienDto[]> {
   const filas = comprobar(
-    await supabase.from('bien').select(COLUMNAS_BIEN).eq('ubicacionFisica', nombre).order('numeroInventario', { ascending: true }).limit(MAX_ESPERADOS),
+    await supabase.from('bien').select(COLUMNAS_BIEN).eq('ubicacionFisica', nombre).is('dadoDeBajaEn', null).order('numeroInventario', { ascending: true }).limit(MAX_ESPERADOS),
   ) as Fila[];
   return filas.map(aBienDto);
 }
@@ -223,6 +224,7 @@ export async function bienesDe(campo: CampoAgrupacion, valor: string): Promise<B
         .from('bien')
         .select(`${COLUMNAS_BIEN}, responsableUso`)
         .eq(campo, valor)
+        .is('dadoDeBajaEn', null)
         .order('numeroInventario', { ascending: true })
         .range(desde, desde + 999),
     ) as Fila[];

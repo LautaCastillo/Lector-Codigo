@@ -78,6 +78,8 @@ export interface BienDto {
   ubicacionFisica: string | null;
   areaResponsable: string | null;
   catalogo: string | null;
+  /** Cuándo se lo marcó como dado de baja (ISO 8601); null si está vigente. */
+  dadoDeBajaEn?: string | null;
 }
 
 /** Ubicación física y cuántos bienes del catálogo tiene asignados. */
