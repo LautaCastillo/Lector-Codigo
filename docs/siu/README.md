@@ -8,4 +8,4 @@ La app nunca escribe en SIU y no se conecta a SIU (plan v3, ADR 0003): ni API, n
 
 Pendiente con la Dirección de Patrimonio: pedir los maestros de Diaguita "Ubicaciones físicas" y "Áreas", por si se decide tener tablas propias de áreas y ubicaciones.
 
-No se versionan credenciales de SIU. La cuenta `consulta.patrimonio` quedó expuesta en un chat y está pendiente de rotar.
+No se versionan credenciales de SIU.

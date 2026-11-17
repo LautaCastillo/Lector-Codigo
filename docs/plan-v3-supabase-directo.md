@@ -211,7 +211,7 @@ La pantalla de bienvenida (D4) espera el logo. El resto de la fase 2 no depende 
 2. **Estructura de áreas y ubicaciones físicas** y de empleados, para decidir tablas (D9) y el modelo de jornadas por alcance.
 3. **Detalle de los tipos de relevamiento** (D8) y quién puede sumarse a una jornada.
 4. **Aval de Patrimonio** para cargar datos reales en Supabase (ya no bloquea el desarrollo).
-5. Rotar la cuenta `consulta.patrimonio` de SIU (sigue expuesta) y cambiar o dar de baja las cuentas de prueba (`adminlauta`, `relevador-app`) antes de cargar datos reales.
+5. Cambiar o dar de baja las cuentas de prueba antes de cargar datos reales.
 6. Confirmar con Patrimonio las simbologías de las etiquetas (las físicas traen menos dígitos que SIU).
 
 ## 15. ADR a redactar (fase 0)

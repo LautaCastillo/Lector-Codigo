@@ -46,5 +46,5 @@ No hace falta Docker ni un servidor propio: la app habla directo con Supabase.
 
 - Los `.env` no se versionan y deben recrearse en cada computadora.
 - Desactivar el registro público en Supabase (Authentication, "Allow new users to sign up"): las cuentas las crea un administrador.
-- Cambiar o dar de baja las cuentas de prueba (`adminlauta`, `relevador-app`, `prueba1`) antes de cargar datos reales, y rotar la cuenta `consulta.patrimonio` de SIU, cuyas credenciales se expusieron en un chat.
+- Cambiar o dar de baja las cuentas de prueba antes de cargar datos reales.
 - Antes de cargar datos reales hace falta el aval escrito de Patrimonio.

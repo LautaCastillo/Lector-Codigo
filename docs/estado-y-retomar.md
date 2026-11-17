@@ -8,7 +8,7 @@ Actualizado el 30/10/2026. Rama `lautaPC`. Hoja de ruta vigente: [`plan-v3-supab
 |---|---|---|
 | 0 | ADR 0001 a 0006 | Hecha |
 | 1 | Seguridad en la base: RLS, privilegios mínimos, auditoría | Hecha |
-| 2 | Cuentas por administrador, sesión sin caducidad, PIN opcional, bienvenida | Hecha. Falta desactivar el registro público en Supabase |
+| 2 | Cuentas por administrador, sesión sin caducidad, PIN opcional, bienvenida | Hecha |
 | 3 | App directo a Supabase: catálogo, relevamientos, hallazgos con foto, exportación, actividad | Hecha |
 | 4 | Importar catálogo CSV/XLSX desde la app, con historial de cargas | Hecha |
 | 5 | Explorar por área, responsable y ubicación; jornadas compartidas en vivo; lecturas repetidas (gana la primera); historial de exportaciones | Hecha y probada con dos teléfonos |
@@ -28,7 +28,7 @@ Actualizado el 30/10/2026. Rama `lautaPC`. Hoja de ruta vigente: [`plan-v3-supab
 ## 3. Pendientes del autor
 
 - Desactivar el registro público en Supabase (Authentication, "Allow new users to sign up").
-- Rotar `consulta.patrimonio` de SIU y cambiar o dar de baja `adminlauta`, `relevador-app` y `prueba1`.
+- Cambiar o dar de baja las cuentas de prueba.
 - Conseguir el aval escrito de Patrimonio antes de cargar datos reales.
 - Probar "Importar catálogo" con el archivo de 61 bienes (suma las áreas SAD y FIJOS) y "Historial de cargas".
 
@@ -58,6 +58,6 @@ Desde el plan v3 no bloquean el desarrollo, salvo el aval de Patrimonio para dat
 
 - **Datos reales fuera de la UNSa:** el catálogo vive en Supabase. No cargar datos reales sin el aval.
 - **Pausa del proyecto gratuito de Supabase** tras una semana de inactividad, sobre todo en el receso de verano.
-- **Cuentas de prueba y `consulta.patrimonio`:** ver la sección 3.
+- **Cuentas de prueba:** ver la sección 3.
 - **Registro público abierto** hasta desactivarlo en el panel de Supabase.
 - **Sin conexión:** las lecturas de una jornada y los relevamientos con detalle se guardan en el teléfono y se envían solos al volver la señal (plan v4, ítem 2, 2/11/2026). Siguen necesitando red los hallazgos con foto, deshacer, resolver discrepancias, cerrar jornadas y exportar. Falta probarlo en el teléfono con modo avión y confirmar con Patrimonio si hay zonas sin cobertura.

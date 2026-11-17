@@ -19,6 +19,10 @@ SELECT set_config('request.jwt.claims', '{"sub":"ffffffff-0000-0000-0000-0000000
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.chk('R1 deja constancia de su exportación', 'ok', pg_temp.intentar(
   $q$INSERT INTO public."exportacion" ("usuarioId","formato","filtros","filas","hashSha256") VALUES ('T-R1','csv','{"alcance":"propios"}'::jsonb,12,repeat('a',64))$q$));
+SELECT pg_temp.chk('R1 puede dejar constancia de una exportación en Excel', 'ok', pg_temp.intentar(
+  $q$INSERT INTO public."exportacion" ("usuarioId","formato","filtros","filas","hashSha256") VALUES ('T-R1','xlsx','{}'::jsonb,3,repeat('c',64))$q$));
+SELECT pg_temp.chk('un formato desconocido se rechaza', '23514', pg_temp.intentar(
+  $q$INSERT INTO public."exportacion" ("usuarioId","formato","filtros","filas") VALUES ('T-R1','doc','{}'::jsonb,1)$q$));
 RESET ROLE;
 INSERT INTO public."exportacion" ("usuarioId","formato","filtros","filas","hashSha256","creadoEn")
   VALUES ('T-ADM','csv','{"alcance":"todos"}'::jsonb, 340, repeat('b',64), now() - interval '1 hour');

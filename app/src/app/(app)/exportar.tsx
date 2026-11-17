@@ -8,7 +8,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Seccion } from '../../compartido/bien';
 import { Boton, Opciones } from '../../compartido/ui';
 import { listarUbicaciones } from '../../datos/catalogo';
-import { type ArchivoCsv, exportarRelevamientos, type FiltroExportacion } from '../../datos/exportaciones';
+import { type ArchivoCsv, exportarRelevamientos, type FiltroExportacion, type FormatoExportacion } from '../../datos/exportaciones';
 import { useSesion } from '../../sesion/sesion';
 import { radio, useEstilos, useTema, type Paleta } from '../../compartido/tema';
 import { mensajeDeError } from '../../compartido/formato';
@@ -60,15 +60,20 @@ export default function Exportar() {
     [periodo, resultado, ubicacion],
   );
 
-  const compartir = async (uri: string) => {
+  const compartir = async (uri: string, formato: FormatoExportacion) => {
     if (!(await Sharing.isAvailableAsync())) {
       setError('Este teléfono no permite compartir archivos desde la app.');
       return;
     }
-    await Sharing.shareAsync(uri, { mimeType: 'text/csv', dialogTitle: 'Relevamientos', UTI: 'public.comma-separated-values-text' });
+    await Sharing.shareAsync(
+      uri,
+      formato === 'xlsx'
+        ? { mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', dialogTitle: 'Relevamientos', UTI: 'org.openxmlformats.spreadsheetml.sheet' }
+        : { mimeType: 'text/csv', dialogTitle: 'Relevamientos', UTI: 'public.comma-separated-values-text' },
+    );
   };
 
-  const generar = async () => {
+  const generar = async (formato: FormatoExportacion) => {
     setGenerando(true);
     setError(null);
     setArchivo(null);
@@ -78,17 +83,17 @@ export default function Exportar() {
         ...(resultado ? { resultado } : {}),
         ...(ubicacion ? { ubicacion } : {}),
         ...(esAdmin && soloMios ? { mios: true } : {}),
-      }, esAdmin);
+      }, esAdmin, formato);
       if (datos.filas === 0) {
         setError('No hay relevamientos con esos filtros.');
       } else {
         // Se guarda en la caché del teléfono (el sistema la puede vaciar) y se ofrece para compartir.
         const archivoLocal = new File(Paths.cache, datos.nombre);
         archivoLocal.create({ overwrite: true });
-        await archivoLocal.write(datos.csv);
+        await archivoLocal.write(datos.contenido);
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setArchivo({ datos, uri: archivoLocal.uri });
-        await compartir(archivoLocal.uri);
+        await compartir(archivoLocal.uri, formato);
       }
     } catch (err) {
       setError(mensajeDeError(err, 'No se pudo generar el archivo.'));
@@ -99,7 +104,7 @@ export default function Exportar() {
   return (
     <ScrollView contentContainerStyle={e.contenido}>
       <View style={e.columna}>
-        <Text style={e.suave}>Genera un archivo CSV de relevamientos que se abre en Excel. Cada exportación queda registrada con quién, cuándo y con qué filtros.</Text>
+        <Text style={e.suave}>Genera un archivo de Excel con los relevamientos (también se puede en CSV). Cada exportación queda registrada con quién, cuándo y con qué filtros.</Text>
 
         <Text style={e.titulo}>Período</Text>
         <Opciones rol="radio" tamano="grande" opciones={PERIODOS.map((p) => ({ clave: p.valor, titulo: p.titulo }))} actual={periodo} alElegir={(v) => setPeriodo(v as Periodo)} />
@@ -133,7 +138,8 @@ export default function Exportar() {
 
         <Text style={e.suave}>Se exportará: {resumenFiltros}</Text>
         {error && <Text style={e.error}>{error}</Text>}
-        <Boton texto="Generar y compartir CSV" onPress={generar} cargando={generando} />
+        <Boton texto="Generar y compartir Excel" onPress={() => generar('xlsx')} cargando={generando} />
+        <Boton texto="Generar CSV" variante="secundario" deshabilitado={generando} onPress={() => generar('csv')} />
 
         {archivo && (
           <View style={e.constancia} accessible>
@@ -143,7 +149,7 @@ export default function Exportar() {
             </Text>
             <Text style={e.suave}>Huella SHA-256: {archivo.datos.hash.slice(0, 16)}…</Text>
             {archivo.datos.truncado && <Text style={e.error}>Había más de 10.000 filas: se exportaron las 10.000 más recientes. Acotá el período para el resto.</Text>}
-            <Boton texto="Compartir de nuevo" variante="secundario" onPress={() => compartir(archivo.uri)} />
+            <Boton texto="Compartir de nuevo" variante="secundario" onPress={() => compartir(archivo.uri, archivo.datos.formato)} />
           </View>
         )}
       </View>

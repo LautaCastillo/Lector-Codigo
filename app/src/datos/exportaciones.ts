@@ -1,5 +1,5 @@
 // Exportación de relevamientos a CSV (armada en el teléfono) y su historial de constancias.
-import { construirCsv, MAX_FILAS_EXPORTACION, nombreDeArchivo, type ResultadoRelevamiento } from '@patrimonio/shared';
+import { construirCsv, construirXlsx, MAX_FILAS_EXPORTACION, nombreDeArchivo, type ResultadoRelevamiento } from '@patrimonio/shared';
 import * as Crypto from 'expo-crypto';
 import { miId } from './cuentas';
 import { listarJornadas } from './jornadas';
@@ -19,8 +19,12 @@ export interface FiltroExportacion {
   mios?: boolean;
 }
 
+export type FormatoExportacion = 'csv' | 'xlsx';
+
 export interface ArchivoCsv {
-  csv: string;
+  /** Contenido del archivo: texto en CSV, bytes en Excel. */
+  contenido: string | Uint8Array;
+  formato: FormatoExportacion;
   nombre: string;
   filas: number;
   /** Huella SHA-256 del archivo: la misma queda registrada en la constancia de la exportación. */
@@ -33,7 +37,7 @@ export interface ArchivoCsv {
  * Arma el CSV de relevamientos en el teléfono. Un relevador exporta lo suyo (lo impone la base) y un
  * administrador, lo de todos o solo lo propio. Queda la constancia con filtros, filas y huella SHA-256.
  */
-export async function exportarRelevamientos(filtro: FiltroExportacion, administrador: boolean): Promise<ArchivoCsv> {
+export async function exportarRelevamientos(filtro: FiltroExportacion, administrador: boolean, formato: FormatoExportacion = 'xlsx'): Promise<ArchivoCsv> {
   const yo = await miId();
   const solo = !administrador || filtro.mios;
   const recolectadas: Fila[] = [];
@@ -61,7 +65,8 @@ export async function exportarRelevamientos(filtro: FiltroExportacion, administr
     }
   }
 
-  const csv = construirCsv(
+  const armar = formato === 'xlsx' ? construirXlsx : construirCsv;
+  const contenido = armar(
     filas.map((f) => {
       const usuario = f.usuario as { cuenta: string; nombre: string | null };
       const bien = f.bien as { numeroInventario: string; descripcion: string | null; ubicacionFisica: string | null; estadoBien: string | null } | null;
@@ -85,7 +90,10 @@ export async function exportarRelevamientos(filtro: FiltroExportacion, administr
       };
     }),
   );
-  const hash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, csv);
+  const hash =
+    typeof contenido === 'string'
+      ? await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, contenido)
+      : Array.from(new Uint8Array(await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, new Uint8Array(contenido))), (b) => b.toString(16).padStart(2, '0')).join('');
 
   const filtros = {
     desde: filtro.desde ?? null,
@@ -94,15 +102,15 @@ export async function exportarRelevamientos(filtro: FiltroExportacion, administr
     resultado: filtro.resultado ?? null,
     alcance: solo ? 'propios' : 'todos',
   };
-  const constancia = await supabase.from('exportacion').insert({ usuarioId: yo, formato: 'csv', filtros, filas: filas.length, hashSha256: hash });
+  const constancia = await supabase.from('exportacion').insert({ usuarioId: yo, formato, filtros, filas: filas.length, hashSha256: hash });
   if (constancia.error) throw new Error(constancia.error.message);
 
-  return { csv, nombre: nombreDeArchivo(new Date()), filas: filas.length, hash, truncado };
+  return { contenido, formato, nombre: nombreDeArchivo(new Date(), formato), filas: filas.length, hash, truncado };
 }
 
 export interface Exportacion {
   id: string;
-  formato: 'csv' | 'pdf';
+  formato: 'csv' | 'xlsx' | 'pdf';
   filtros: { desde?: string | null; hasta?: string | null; ubicacion?: string | null; resultado?: string | null; alcance?: 'propios' | 'todos' } | null;
   filas: number;
   hashSha256: string | null;

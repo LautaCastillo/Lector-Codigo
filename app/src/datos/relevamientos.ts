@@ -15,7 +15,7 @@ import { miId } from './cuentas';
 import { supabase } from './supabase';
 import { aIso, comprobar, ErrorApi, esFalloDeRed, type Fila } from './util';
 
-export const COLUMNAS_RELEVAMIENTO = `*, bien:bien(${COLUMNAS_BIEN}), usuario:usuario(cuenta, nombre)`;
+export const COLUMNAS_RELEVAMIENTO = `*, bien:bien(${COLUMNAS_BIEN}), usuario:usuario!usuarioId(cuenta, nombre)`;
 /** Filas por pedido al insertar (la API corta a 1000 por pedido). */
 const TANDA = 100;
 
