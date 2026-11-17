@@ -116,7 +116,7 @@ Antes hay que crear `app/.env` a partir de `app/.env.example` con la URL y la cl
 
 ## Próximos pasos
 
-1. Desactivar el registro público en Supabase; rotar `consulta.patrimonio`; dar de baja las cuentas de prueba.
+1. Revisar la configuración de Auth en Supabase y dar de baja las cuentas de prueba.
 2. Comentar cada archivo y función importante (cierre de la fase 6).
 3. Pedir el aval de Patrimonio para cargar datos reales; confirmar las simbologías reales de las etiquetas.
 

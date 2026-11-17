@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { Boton } from '../../compartido/ui';
 import { useBloqueo } from '../../sesion/bloqueo';
+import { useSesion } from '../../sesion/sesion';
 import { radio, useEstilos, useTema, type Paleta, type Preferencia } from '../../compartido/tema';
 
 const OPCIONES: { valor: Preferencia; titulo: string; detalle: string }[] = [
@@ -17,6 +18,7 @@ export default function Ajustes() {
   const e = useEstilos(fabrica);
   const router = useRouter();
   const { configurado, biometriaActiva, desactivar } = useBloqueo();
+  const { perfil } = useSesion();
 
   const confirmarDesactivar = () =>
     Alert.alert('¿Desactivar el PIN?', 'La app dejará de pedir el PIN al abrirla.', [
@@ -59,7 +61,7 @@ export default function Ajustes() {
             </Text>
           </View>
           <Boton texto={configurado ? 'Cambiar PIN' : 'Activar PIN'} variante="secundario" onPress={() => router.push('/configurar-bloqueo')} />
-          {configurado && <Boton texto="Desactivar PIN" variante="peligro" onPress={confirmarDesactivar} />}
+          {configurado && perfil?.rol !== 'administrador' && <Boton texto="Desactivar PIN" variante="peligro" onPress={confirmarDesactivar} />}
           <Text style={e.detalle}>
             La sesión queda abierta hasta que la cierres o un administrador suspenda tu cuenta.
           </Text>

@@ -89,9 +89,8 @@ export function celda(valor: string | null | undefined): string {
  * CSV separado por punto y coma (lo que Excel en español abre sin asistente), con BOM para que
  * respete los acentos, y saltos de línea CRLF.
  */
-export function construirCsv(filas: FilaExportable[]): string {
-  const lineas = filas.map((f) =>
-    [
+export function valoresDeFila(f: FilaExportable): (string | null | undefined)[] {
+  return [
       fechaParaCsv(f.relevadoEnDispositivo),
       fechaParaCsv(f.sincronizadoEn),
       f.usuario.nombre ?? f.usuario.cuenta,
@@ -110,10 +109,11 @@ export function construirCsv(filas: FilaExportable[]): string {
       f.estadoDetectado,
       f.bien?.estadoBien,
       f.observaciones,
-    ]
-      .map((v) => celda(v))
-      .join(';'),
-  );
+  ];
+}
+
+export function construirCsv(filas: FilaExportable[]): string {
+  const lineas = filas.map((f) => valoresDeFila(f).map((v) => celda(v)).join(';'));
   return `﻿${[ENCABEZADOS.join(';'), ...lineas].join('\r\n')}\r\n`;
 }
 
@@ -131,7 +131,7 @@ const partesDeFecha = new Intl.DateTimeFormat('en-CA', {
   hourCycle: 'h23',
 });
 
-export function nombreDeArchivo(ahora: Date) {
+export function nombreDeArchivo(ahora: Date, extension: 'csv' | 'xlsx' = 'csv') {
   const p = Object.fromEntries(partesDeFecha.formatToParts(ahora).map((x) => [x.type, x.value]));
-  return `relevamientos-${p.year}${p.month}${p.day}-${p.hour}${p.minute}.csv`;
+  return `relevamientos-${p.year}${p.month}${p.day}-${p.hour}${p.minute}.${extension}`;
 }

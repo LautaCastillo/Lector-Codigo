@@ -6,3 +6,5 @@ coverage
 .expo
 .DS_Store
 graphify-out/
+# Análisis de seguridad: solo local, no se publica
+docs/04-operacion/seguridad-*.md

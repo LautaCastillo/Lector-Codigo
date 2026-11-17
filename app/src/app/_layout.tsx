@@ -10,6 +10,7 @@ import { TemaProvider, useTema } from '../compartido/tema';
 import Login from './(auth)/login';
 import Bloqueo from './bloqueo';
 import CambiarClave from './cambiar-clave';
+import ConfigurarBloqueo from './(app)/configurar-bloqueo';
 import EstadoCuenta from './estado-cuenta';
 
 const DURACION_BIENVENIDA_MS = 1800;
@@ -41,6 +42,8 @@ function Rutas() {
   else if (!activa) contenido = <EstadoCuenta />;
   else if (perfil?.debeCambiarClave) contenido = <CambiarClave />;
   else if (bloqueada) contenido = <Bloqueo />;
+  // Los administradores no pueden usar la app sin PIN: su cuenta puede cambiar cuentas y datos de todos.
+  else if (perfil?.rol === 'administrador' && !bloqueo.configurado) contenido = <ConfigurarBloqueo obligatorio />;
   else
     contenido = (
       <Stack screenOptions={{ headerShown: false }}>

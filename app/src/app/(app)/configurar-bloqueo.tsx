@@ -9,7 +9,7 @@ import { useEstilos, type Paleta } from '../../compartido/tema';
 type Paso = { tipo: 'crear' } | { tipo: 'confirmar'; pin: string } | { tipo: 'biometria'; pin: string };
 
 /** Activa (o cambia) el PIN opcional que protege la app, y opcionalmente la huella o el rostro. Se abre desde Ajustes. */
-export default function ConfigurarBloqueo() {
+export default function ConfigurarBloqueo({ obligatorio = false }: { obligatorio?: boolean }) {
   const { configurar, biometriaDisponible } = useBloqueo();
   const router = useRouter();
   const e = useEstilos(fabrica);
@@ -20,7 +20,8 @@ export default function ConfigurarBloqueo() {
   const guardar = async (pin: string, biometria: boolean) => {
     setGuardando(true);
     await configurar(pin, biometria);
-    router.back();
+    // Obligatorio: se muestra antes de la app y desaparece solo al quedar configurado el PIN.
+    if (!obligatorio) router.back();
   };
 
   const crear = async (pin: string) => {
@@ -59,12 +60,12 @@ export default function ConfigurarBloqueo() {
             <Text style={e.titulo}>{paso.tipo === 'crear' ? 'Creá un PIN de bloqueo' : 'Confirmá tu PIN'}</Text>
             <Text style={e.texto}>
               {paso.tipo === 'crear'
-                ? `La app se bloquea al abrirla y tras 5 minutos en segundo plano. Elegí ${LARGO_PIN} dígitos.`
+                ? `${obligatorio ? 'Las cuentas de administrador necesitan PIN. ' : ''}La app se bloquea al abrirla y tras 5 minutos en segundo plano. Elegí ${LARGO_PIN} dígitos.`
                 : 'Ingresá el mismo PIN otra vez.'}
             </Text>
             {aviso && <Text style={e.aviso}>{aviso}</Text>}
             <PanelPin alCompletar={paso.tipo === 'crear' ? crear : confirmar} reinicio={paso.tipo} />
-            <Boton texto="Cancelar" variante="secundario" onPress={() => router.back()} />
+            {!obligatorio && <Boton texto="Cancelar" variante="secundario" onPress={() => router.back()} />}
           </>
         )}
       </View>
